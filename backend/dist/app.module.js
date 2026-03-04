@@ -15,6 +15,7 @@ const supabase_module_1 = require("./supabase/supabase.module");
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const events_module_1 = require("./events/events.module");
+const matches_module_1 = require("./matches/matches.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -26,6 +27,7 @@ exports.AppModule = AppModule = __decorate([
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             events_module_1.EventsModule,
+            matches_module_1.MatchesModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

@@ -17,7 +17,12 @@ const websockets_1 = require("@nestjs/websockets");
 const common_1 = require("@nestjs/common");
 const socket_io_1 = require("socket.io");
 const ws_auth_guard_1 = require("./guards/ws-auth.guard");
+const prisma_service_1 = require("../prisma/prisma.service");
 let EventsGateway = class EventsGateway {
+    prisma;
+    constructor(prisma) {
+        this.prisma = prisma;
+    }
     server;
     handleConnection(client) {
         console.log(`Client connected: ${client.id}`);
@@ -37,15 +42,25 @@ let EventsGateway = class EventsGateway {
         console.log(`User ${client.user?.id} left match ${matchId}`);
         return { event: 'left', data: { matchId } };
     }
-    handleMessage(client, data) {
+    async handleMessage(client, data) {
         const { matchId, content } = data;
-        const message = {
-            id: crypto.randomUUID(),
-            match_id: matchId,
-            sender_id: client.user?.id,
-            content,
-            created_at: new Date().toISOString(),
-        };
+        const userId = client.user?.id;
+        if (!userId) {
+            throw new websockets_1.WsException('Unauthorized');
+        }
+        const match = await this.prisma.matches.findUnique({
+            where: { id: matchId },
+        });
+        if (!match || (match.user_a_id !== userId && match.user_b_id !== userId)) {
+            throw new websockets_1.WsException('You are not allowed to send messages for this match');
+        }
+        const message = await this.prisma.messages.create({
+            data: {
+                match_id: matchId,
+                sender_id: userId,
+                content,
+            },
+        });
         this.server.to(`match:${matchId}`).emit('newMessage', message);
         return { event: 'messageSent', data: message };
     }
@@ -88,7 +103,7 @@ __decorate([
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EventsGateway.prototype, "handleMessage", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('typing'),
@@ -104,6 +119,7 @@ exports.EventsGateway = EventsGateway = __decorate([
         cors: {
             origin: '*',
         },
-    })
+    }),
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
 ], EventsGateway);
 //# sourceMappingURL=events.gateway.js.map

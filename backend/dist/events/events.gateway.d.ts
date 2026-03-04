@@ -1,5 +1,6 @@
 import { OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../prisma/prisma.service';
 declare module 'socket.io' {
     interface Socket {
         user?: {
@@ -9,6 +10,8 @@ declare module 'socket.io' {
     }
 }
 export declare class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+    private prisma;
+    constructor(prisma: PrismaService);
     server: Server;
     handleConnection(client: Socket): void;
     handleDisconnect(client: Socket): void;
@@ -31,16 +34,16 @@ export declare class EventsGateway implements OnGatewayConnection, OnGatewayDisc
     handleMessage(client: Socket, data: {
         matchId: string;
         content: string;
-    }): {
+    }): Promise<{
         event: string;
         data: {
-            id: `${string}-${string}-${string}-${string}-${string}`;
-            match_id: string;
-            sender_id: string | undefined;
+            id: string;
+            created_at: Date;
             content: string;
-            created_at: string;
+            match_id: string;
+            sender_id: string;
         };
-    };
+    }>;
     handleTyping(client: Socket, data: {
         matchId: string;
         isTyping: boolean;

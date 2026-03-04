@@ -6,10 +6,12 @@ import {
   OnGatewayDisconnect,
   MessageBody,
   ConnectedSocket,
+  WsException,
 } from '@nestjs/websockets';
 import { UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { WsAuthGuard } from './guards/ws-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 
 declare module 'socket.io' {
   interface Socket {
@@ -26,6 +28,8 @@ declare module 'socket.io' {
   },
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  constructor(private prisma: PrismaService) {}
+
   @WebSocketServer()
   server: Server;
 
@@ -63,18 +67,34 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('sendMessage')
   @UseGuards(WsAuthGuard)
-  handleMessage(
+  async handleMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { matchId: string; content: string },
   ) {
     const { matchId, content } = data;
-    const message = {
-      id: crypto.randomUUID(),
-      match_id: matchId,
-      sender_id: client.user?.id,
-      content,
-      created_at: new Date().toISOString(),
-    };
+    const userId = client.user?.id;
+
+    if (!userId) {
+      throw new WsException('Unauthorized');
+    }
+
+    const match = await this.prisma.matches.findUnique({
+      where: { id: matchId },
+    });
+
+    if (!match || (match.user_a_id !== userId && match.user_b_id !== userId)) {
+      throw new WsException(
+        'You are not allowed to send messages for this match',
+      );
+    }
+
+    const message = await this.prisma.messages.create({
+      data: {
+        match_id: matchId,
+        sender_id: userId,
+        content,
+      },
+    });
 
     this.server.to(`match:${matchId}`).emit('newMessage', message);
     return { event: 'messageSent', data: message };
