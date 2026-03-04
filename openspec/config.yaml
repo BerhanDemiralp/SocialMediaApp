@@ -1,0 +1,159 @@
+schema: spec-driven
+
+# Project Context
+context: |
+  ## Project Overview
+  **MOMENT** is a cozy conversation habit app for friends and small social groups. It helps people build a habit of talking with friends by combining daily prompts and time-limited pairings that make starting conversations effortless.
+
+  ## Core Problem Being Solved
+  - First-message friction ("What should I say?")
+  - Asynchronous timing (one person available, other is not)
+  - Dormant friendships fading without triggers
+  - Empty state problem in new social apps
+
+  ## Product Positioning
+  - Category: Social / Messaging / Habit-forming communication
+  - Differentiation: Initiation engine vs transmission tools (WhatsApp) or consumption loops (Instagram/TikTok)
+  - UX Philosophy: Ritual over consumption, no infinite feeds, synchronous nudging
+
+  ---
+  ## Tech Stack
+
+  - **Frontend**: Flutter (Dart) - Mobile app with Material Design 3
+
+  - **Backend**: Node.js + TypeScript - NestJS
+
+  - **Database**: PostgreSQL with Prisma ORM
+
+  - **Real-time**: Socket.io (with NestJS Gateway)
+
+  - **Auth**: Supabase Auth
+
+  - **Storage**: Supabase Storage 
+
+  ---
+
+  ## Project Conventions
+
+  ### Code Style
+
+  - **Flutter**: Clean Architecture (presentation/domain/data layers), Riverpod or Bloc for state management, camelCase for variables, PascalCase for classes
+
+  - **TypeScript**: ESLint + Prettier, camelCase for variables/functions, PascalCase for classes, Zod for request validation
+
+
+  ### Architecture Patterns
+
+  - **Flutter**: Clean Architecture with repository pattern
+
+  - **Backend (NestJS)**: Modular architecture (modules/controllers/services/repositories), dependency injection, guards, interceptors, filters
+
+  - **Database**: snake_case naming, UUID for user-facing IDs, created_at/updated_at timestamps on all tables
+
+
+
+  ### Git Workflow
+
+  - Branch naming: feature/description, bugfix/description
+
+  - Commit messages: Conventional commits (feat:, fix:, refactor:, etc.)
+
+
+  ---
+
+  ## Domain Context
+
+  ### Product Modes
+
+  #### Friends Mode (Default)
+  - Add friends via username
+  - Mutual confirmation required for friendship
+  - Matching pairs users with existing friends daily
+  - Chats are permanent and fully writable
+  - Purpose: Maintain and strengthen existing relationships
+
+  #### Groups Mode
+  - Join groups via invite link (no public discovery in MVP)
+  - Match with random group members
+  - Chats start as temporary (1-hour window)
+  - After window: both users wants to go on conversation → permanent chat; otherwise read-only
+  - Purpose: Socialize and meet new people in controlled context
+
+  ### Core Features
+
+  #### Daily Question
+  - Each day all users receive the same question
+  - User must answer to unlock friends' answers
+  - Friends' responses appear as cards
+  - Each card has reply action → opens chat
+
+  #### Mini Games
+  - Short 30-60 second interactive activities
+  - Examples: This-or-That, Would-You-Rather, Mini personality quiz
+  - User plays → receives result → compare with friends/group members
+  - Actions: comment, rematch, open chat
+  - Game results are permanently stored; users can view old games
+
+  #### Scheduled Pair Matching ("Moment")
+  - Daily at predefined time (e.g., 5:00 PM)
+  - One reminder if inactive
+  - Active period: 1 hour from scheduled time
+  - Success condition: 10+ total messages, each user sends ≥1 message
+  - After expiration: chat remains accessible in Messages
+
+  ### Matching Types
+  - **Friends Daily Pairing**: One matched friend per day, chat becomes permanent automatically
+  - **Group Daily Pairing**: Random group member, temporary → permanent only with mutual opt-in
+
+  ### User Profiles
+  - Username, Avatar, Basic identity info (TBD), Friend list
+  - Friendship: Add by username or phone, mutual confirmation required
+  - Groups: Join via invite link, members visible after joining
+
+  ### Safety & Moderation
+  - Block or report available in both modes
+  - Blocking results: Chat removed, no future matching, hidden from groups
+  - Purpose: Maintain cozy, safe environment; prevent harassment; avoid dating-app dynamics
+
+  ## Important Constraints
+
+  ### MVP Exclusions
+  - Public group discovery
+  - Algorithmic matching
+  - Media-rich chat (TBD)
+  - Personalization engine
+
+  ### UX Constraints
+  - No infinite feed - content exists only to start conversations
+  - Non-dating social tone - no swiping, no algorithmic attraction, no public popularity metrics
+  - Low pressure design - soft streaks, no harsh penalties, opt-in permanence in groups
+
+  ### Technical Constraints
+  - Match times are fixed (not adaptive) in MVP
+  - Maximum 1 active match per user at a time
+  - Chat message limit: TBD (consider rate limiting)
+
+  ---
+
+  ## External Dependencies
+
+  ### Core Services
+  - **Supabase**: PostgreSQL database, Auth, Real-time subscriptions, Storage
+    - Alternative: Self-hosted PostgreSQL + custom auth + Socket.io
+
+
+  ### API Integrations
+  - Firebase Cloud Messaging (FCM): Push notifications
+  - Apple Push Notification Service (APNS): iOS push notifications
+
+  ---
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours

@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model users {
+  id            String        @id @default(uuid())
+  username      String        @unique
+  email         String        @unique
+  avatar_url    String?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  friendships_as_requester friendships[] @relation("FriendshipRequester")
+  friendships_as_addressee friendships[] @relation("FriendshipAddressee")
+  group_memberships       group_members[]
+  messages                messages[]
+  matches_as_user_a       matches[] @relation("MatchUserA")
+  matches_as_user_b       matches[] @relation("MatchUserB")
+  user_answers            user_answers[]
+  games                   games[]
+}
+
+model friendships {
+  id           String   @id @default(uuid())
+  requester_id String
+  addressee_id String
+  status       String   @default("pending") // pending, accepted, rejected
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  requester users @relation("FriendshipRequester", fields: [requester_id], references: [id])
+  addressee users @relation("FriendshipAddressee", fields: [addressee_id], references: [id])
+
+  @@unique([requester_id, addressee_id])
+}
+
+model groups {
+  id          String   @id @default(uuid())
+  name        String
+  invite_code String   @unique
+  created_by  String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  members group_members[]
+}
+
+model group_members {
+  id        String   @id @default(uuid())
+  user_id   String
+  group_id  String
+  joined_at DateTime @default(now())
+
+  user  users  @relation(fields: [user_id], references: [id])
+  group groups @relation(fields: [group_id], references: [id])
+
+  @@unique([user_id, group_id])
+}
+
+model messages {
+  id        String   @id @default(uuid())
+  match_id  String
+  sender_id String
+  content   String
+  created_at DateTime @default(now())
+
+  match  matches @relation(fields: [match_id], references: [id])
+  sender users   @relation(fields: [sender_id], references: [id])
+}
+
+model matches {
+  id          String   @id @default(uuid())
+  user_a_id   String
+  user_b_id   String
+  match_type  String   // friends, groups
+  status      String   @default("active") // active, expired, successful
+  scheduled_at DateTime @default(now())
+  expires_at  DateTime
+
+  user_a users @relation("MatchUserA", fields: [user_a_id], references: [id])
+  user_b users @relation("MatchUserB", fields: [user_b_id], references: [id])
+  messages messages[]
+}
+
+model daily_questions {
+  id            String   @id @default(uuid())
+  question_text String
+  question_date DateTime @unique
+  created_at    DateTime @default(now())
+
+  user_answers user_answers[]
+}
+
+model user_answers {
+  id          String   @id @default(uuid())
+  user_id     String
+  question_id String
+  answer_text String
+  created_at  DateTime @default(now())
+
+  user     users          @relation(fields: [user_id], references: [id])
+  question daily_questions @relation(fields: [question_id], references: [id])
+}
+
+model games {
+  id         String   @id @default(uuid())
+  user_id    String
+  game_type  String   // this-or-that, would-you-rather, personality-quiz
+  result_data Json
+  created_at DateTime @default(now())
+
+  user users @relation(fields: [user_id], references: [id])
+}
