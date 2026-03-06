@@ -1,0 +1,62 @@
+import { FriendsRepository } from './friends.repository';
+export declare class FriendsService {
+    private friendsRepository;
+    constructor(friendsRepository: FriendsRepository);
+    sendFriendRequest(requesterId: string, targetUserId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        status: string;
+        addressee_id: string;
+        requester_id: string;
+    }>;
+    acceptRequest(userId: string, requestId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        status: string;
+        addressee_id: string;
+        requester_id: string;
+    }>;
+    rejectRequest(userId: string, requestId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        status: string;
+        addressee_id: string;
+        requester_id: string;
+    }>;
+    cancelRequest(userId: string, requestId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        status: string;
+        addressee_id: string;
+        requester_id: string;
+    }>;
+    listFriends(userId: string): Promise<{
+        id: string;
+        username: string;
+        avatar_url: string | null;
+    }[]>;
+    listIncomingRequests(userId: string): Promise<{
+        id: string;
+        from: {
+            id: string;
+            username: string;
+            avatar_url: string | null;
+        };
+        status: string;
+        created_at: Date;
+    }[]>;
+    listOutgoingRequests(userId: string): Promise<{
+        id: string;
+        to: {
+            id: string;
+            username: string;
+            avatar_url: string | null;
+        };
+        status: string;
+        created_at: Date;
+    }[]>;
+}

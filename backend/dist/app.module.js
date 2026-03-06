@@ -16,6 +16,8 @@ const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
 const events_module_1 = require("./events/events.module");
 const matches_module_1 = require("./matches/matches.module");
+const friends_module_1 = require("./friends/friends.module");
+const groups_module_1 = require("./groups/groups.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -28,6 +30,8 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             events_module_1.EventsModule,
             matches_module_1.MatchesModule,
+            friends_module_1.FriendsModule,
+            groups_module_1.GroupsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],
