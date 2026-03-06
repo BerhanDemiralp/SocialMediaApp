@@ -10,6 +10,7 @@ import { MatchesModule } from './matches/matches.module';
 import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
+import { MatchingEngineModule } from './matching-engine/matching-engine.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
     FriendsModule,
     GroupsModule,
     DailyQuestionsModule,
+    MatchingEngineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -80,6 +80,8 @@ model matches {
   status      String   @default("active") // active, expired, successful
   scheduled_at DateTime @default(now())
   expires_at  DateTime
+  user_a_opt_in Boolean @default(false)
+  user_b_opt_in Boolean @default(false)
 
   user_a users @relation("MatchUserA", fields: [user_a_id], references: [id])
   user_b users @relation("MatchUserB", fields: [user_b_id], references: [id])
