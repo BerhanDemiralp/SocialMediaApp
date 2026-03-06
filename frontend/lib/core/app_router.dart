@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'auth/auth_state.dart';
 import '../features/auth/presentation/auth_gate.dart';
 import '../features/home/presentation/home_shell.dart';
+import '../features/chat/presentation/chat_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -28,6 +29,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthGateScreen(),
       ),
       GoRoute(path: '/', builder: (context, state) => const HomeShellScreen()),
+      GoRoute(
+        path: '/chat/:matchId',
+        builder: (context, state) {
+          final matchId = state.pathParameters['matchId']!;
+          final isTemporary =
+              state.uri.queryParameters['temporary'] == 'true';
+          return ChatScreen(
+            matchId: matchId,
+            isTemporary: isTemporary,
+          );
+        },
+      ),
     ],
   );
 });
