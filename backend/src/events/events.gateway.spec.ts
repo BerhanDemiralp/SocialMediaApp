@@ -15,13 +15,11 @@ describe('EventsGateway - sendMessage', () => {
       messages: { create: jest.fn() },
     };
 
-    // @ts-expect-error – we only need the subset of PrismaService used by the gateway
     gateway = new EventsGateway(prisma as unknown as PrismaService);
 
-    // @ts-expect-error – server is normally injected by Nest/Socket.io; we mock the interface we use
     gateway.server = {
       to: jest.fn().mockReturnValue({ emit: jest.fn() }),
-    };
+    } as any;
   });
 
   it('persists and emits message for authorized participant', async () => {
@@ -76,4 +74,3 @@ describe('EventsGateway - sendMessage', () => {
     expect(prisma.messages.create).not.toHaveBeenCalled();
   });
 });
-
