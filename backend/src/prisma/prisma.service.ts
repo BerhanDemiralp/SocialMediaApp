@@ -2,6 +2,9 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 const databaseUrl = process.env.DATABASE_URL;
 

@@ -7,10 +7,10 @@
 
 ## 2. Authentication and session management
 
-- [ ] 2.1 Integrate Supabase Auth SDK and configure environments
-- [ ] 2.2 Implement sign up, login, logout, and password reset flows
-- [ ] 2.3 Implement persistent session handling and token refresh
-- [ ] 2.4 Wire auth state into app shell routing (unauth → auth flow, auth → main shell)
+- [x] 2.1 Integrate Supabase Auth SDK and configure environments
+- [x] 2.2 Implement sign up, login, logout, and password reset flows
+- [x] 2.3 Implement persistent session handling and token refresh
+- [x] 2.4 Wire auth state into app shell routing (unauth → auth flow, auth → main shell)
 
 ## 3. Daily question experience
 
@@ -28,10 +28,10 @@
 
 ## 5. Chat and real-time messaging
 
-- [ ] 5.1 Implement chat repositories and data models for messages, threads, and participants
-- [ ] 5.2 Integrate Socket.io (and/or Supabase real-time) for receiving new messages and status updates
-- [ ] 5.3 Build chat UI (message list, composer, send status indicators)
-- [ ] 5.4 Implement handling for temporary vs permanent chats, including visual indicators and state transitions
+- [x] 5.1 Implement chat repositories and data models for messages, threads, and participants
+- [x] 5.2 Integrate Socket.io (and/or Supabase real-time) for receiving new messages and status updates
+- [x] 5.3 Build chat UI (message list, composer, send status indicators)
+- [x] 5.4 Implement handling for temporary vs permanent chats, including visual indicators and state transitions
 
 ## 6. Notifications and engagement
 

@@ -94,6 +94,7 @@ Unit tests currently cover:
 - `AppController` health/hello routes
 - `AuthService` (register/login/logout/validateToken)
 - `UsersService` (profile read/update)
+- Feature modules as they are added (e.g., friends, groups, daily-questions)
 
 ---
 
@@ -137,4 +138,3 @@ Authentication is enforced by `WsAuthGuard`.
 - `POST /api/auth/logout` – Ends the current session.
 - `GET /api/users/me` – Returns the authenticated user’s profile.
 - `PATCH /api/users/me` – Updates username / avatar URL (with username uniqueness checks).
-

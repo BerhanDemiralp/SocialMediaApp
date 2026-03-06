@@ -104,6 +104,8 @@ model user_answers {
 
   user     users          @relation(fields: [user_id], references: [id])
   question daily_questions @relation(fields: [question_id], references: [id])
+
+  @@unique([question_id, user_id])
 }
 
 model games {

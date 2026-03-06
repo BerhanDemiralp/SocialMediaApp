@@ -9,6 +9,7 @@ import { EventsModule } from './events/events.module';
 import { MatchesModule } from './matches/matches.module';
 import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
+import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { GroupsModule } from './groups/groups.module';
     MatchesModule,
     FriendsModule,
     GroupsModule,
+    DailyQuestionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
