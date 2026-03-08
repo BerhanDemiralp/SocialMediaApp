@@ -18,6 +18,7 @@ const common_1 = require("@nestjs/common");
 const socket_io_1 = require("socket.io");
 const ws_auth_guard_1 = require("./guards/ws-auth.guard");
 const prisma_service_1 = require("../prisma/prisma.service");
+const client_1 = require("@prisma/client");
 let EventsGateway = class EventsGateway {
     prisma;
     constructor(prisma) {
@@ -30,17 +31,27 @@ let EventsGateway = class EventsGateway {
     handleDisconnect(client) {
         console.log(`Client disconnected: ${client.id}`);
     }
-    handleJoinMatch(client, data) {
+    async handleJoinMatch(client, data) {
         const { matchId } = data;
+        const { conversation } = await this.ensureConversationForMatch(matchId);
         void client.join(`match:${matchId}`);
+        void client.join(`conversation:${conversation.id}`);
         console.log(`User ${client.user?.id} joined match ${matchId}`);
-        return { event: 'joined', data: { matchId } };
+        return {
+            event: 'joined',
+            data: { matchId, conversationId: conversation.id },
+        };
     }
-    handleLeaveMatch(client, data) {
+    async handleLeaveMatch(client, data) {
         const { matchId } = data;
+        const { conversation } = await this.ensureConversationForMatch(matchId);
+        void client.leave(`conversation:${conversation.id}`);
         void client.leave(`match:${matchId}`);
         console.log(`User ${client.user?.id} left match ${matchId}`);
-        return { event: 'left', data: { matchId } };
+        return {
+            event: 'left',
+            data: { matchId, conversationId: conversation.id },
+        };
     }
     async handleMessage(client, data) {
         const { matchId, content } = data;
@@ -48,29 +59,75 @@ let EventsGateway = class EventsGateway {
         if (!userId) {
             throw new websockets_1.WsException('Unauthorized');
         }
-        const match = await this.prisma.matches.findUnique({
-            where: { id: matchId },
-        });
-        if (!match || (match.user_a_id !== userId && match.user_b_id !== userId)) {
+        const { match, conversation } = await this.ensureConversationForMatch(matchId);
+        if (match.user_a_id !== userId && match.user_b_id !== userId) {
             throw new websockets_1.WsException('You are not allowed to send messages for this match');
         }
         const message = await this.prisma.messages.create({
             data: {
                 match_id: matchId,
+                conversation_id: conversation.id,
                 sender_id: userId,
                 content,
             },
         });
+        this.server
+            .to(`conversation:${conversation.id}`)
+            .emit('newMessage', message);
         this.server.to(`match:${matchId}`).emit('newMessage', message);
         return { event: 'messageSent', data: message };
     }
-    handleTyping(client, data) {
+    async handleTyping(client, data) {
         const { matchId, isTyping } = data;
+        const { conversation } = await this.ensureConversationForMatch(matchId);
+        client.to(`conversation:${conversation.id}`).emit('userTyping', {
+            userId: client.user?.id,
+            isTyping,
+        });
         client.to(`match:${matchId}`).emit('userTyping', {
             userId: client.user?.id,
             isTyping,
         });
         return { event: 'typingAcknowledged' };
+    }
+    async ensureConversationForMatch(matchId) {
+        const match = await this.prisma.matches.findUnique({
+            where: { id: matchId },
+        });
+        if (!match) {
+            throw new websockets_1.WsException('Match not found');
+        }
+        const isFriendMatch = match.match_type === 'friends';
+        const isGroupMatch = match.match_type === 'groups';
+        const where = isFriendMatch || !isGroupMatch
+            ? { friend_match_id: match.id }
+            : { group_match_id: match.id };
+        let conversation = await this.prisma.conversations.findFirst({
+            where,
+        });
+        if (!conversation) {
+            const participantIds = [match.user_a_id, match.user_b_id].filter((id, index, arr) => !!id && arr.indexOf(id) === index);
+            const participantsCreate = participantIds.map((userId) => ({
+                user: { connect: { id: userId } },
+            }));
+            const type = isFriendMatch
+                ? client_1.ConversationType.friend
+                : isGroupMatch
+                    ? client_1.ConversationType.group_pair
+                    : client_1.ConversationType.friend;
+            conversation = await this.prisma.conversations.create({
+                data: {
+                    type,
+                    title: null,
+                    friend_match_id: isFriendMatch ? match.id : null,
+                    group_match_id: isGroupMatch ? match.id : null,
+                    participants: {
+                        create: participantsCreate,
+                    },
+                },
+            });
+        }
+        return { match, conversation };
     }
 };
 exports.EventsGateway = EventsGateway;
@@ -85,7 +142,7 @@ __decorate([
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EventsGateway.prototype, "handleJoinMatch", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('leaveMatch'),
@@ -94,7 +151,7 @@ __decorate([
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EventsGateway.prototype, "handleLeaveMatch", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('sendMessage'),
@@ -112,7 +169,7 @@ __decorate([
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], EventsGateway.prototype, "handleTyping", null);
 exports.EventsGateway = EventsGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({

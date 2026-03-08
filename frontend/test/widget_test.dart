@@ -6,12 +6,17 @@
 // tree, read text, and verify that the values of widget properties are correct.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:moment_app/main.dart';
 
 void main() {
   testWidgets('App builds without crashing', (WidgetTester tester) async {
-    await tester.pumpWidget(const MomentApp());
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MomentApp(),
+      ),
+    );
     expect(find.byType(MomentApp), findsOneWidget);
   });
 }

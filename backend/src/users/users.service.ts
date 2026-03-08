@@ -56,4 +56,19 @@ export class UsersService {
       updated_at: updatedUser.updated_at,
     };
   }
+
+  async searchUsers(query: string, limit: number, currentUserId: string) {
+    const trimmed = query.trim();
+
+    if (!trimmed) {
+      throw new Error('Query is required');
+    }
+
+    const users = await this.usersRepository.searchByUsername(
+      trimmed,
+      limit || 20,
+    );
+
+    return users.filter((u) => u.id !== currentUserId);
+  }
 }

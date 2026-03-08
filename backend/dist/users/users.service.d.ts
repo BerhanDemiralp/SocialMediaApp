@@ -19,4 +19,9 @@ export declare class UsersService {
         created_at: Date;
         updated_at: Date;
     }>;
+    searchUsers(query: string, limit: number, currentUserId: string): Promise<{
+        username: string;
+        id: string;
+        avatar_url: string | null;
+    }[]>;
 }

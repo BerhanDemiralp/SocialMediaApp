@@ -138,3 +138,14 @@ Authentication is enforced by `WsAuthGuard`.
 - `POST /api/auth/logout` – Ends the current session.
 - `GET /api/users/me` – Returns the authenticated user’s profile.
 - `PATCH /api/users/me` – Updates username / avatar URL (with username uniqueness checks).
+
+### Friends and user search
+
+- `GET /api/users/search?query=&limit=` – Search users by username (excluding the current user).
+- `POST /api/friends/requests` – Send a friend request to a target user.
+- `GET /api/friends/requests/incoming` – List pending incoming friend requests.
+- `GET /api/friends/requests/outgoing` – List pending outgoing friend requests.
+- `PATCH /api/friends/requests/:id/accept` – Accept a pending incoming friend request.
+- `PATCH /api/friends/requests/:id/reject` – Reject a pending incoming friend request.
+- `PATCH /api/friends/requests/:id/cancel` – Cancel a pending outgoing friend request.
+

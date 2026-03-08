@@ -32,6 +32,30 @@ let UsersRepository = class UsersRepository {
             where: { username },
         });
     }
+    async searchByUsername(query, limit) {
+        const normalizedLimit = limit > 0 && limit <= 50 ? limit : 20;
+        const q = query.trim();
+        if (!q) {
+            return [];
+        }
+        return this.prismaService.users.findMany({
+            where: {
+                username: {
+                    contains: q,
+                    mode: 'insensitive',
+                },
+            },
+            take: normalizedLimit,
+            orderBy: {
+                username: 'asc',
+            },
+            select: {
+                id: true,
+                username: true,
+                avatar_url: true,
+            },
+        });
+    }
     async update(id, data) {
         return this.prismaService.users.update({
             where: { id },

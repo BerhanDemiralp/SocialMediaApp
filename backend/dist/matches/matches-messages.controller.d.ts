@@ -12,6 +12,7 @@ export declare class MatchesMessagesController {
         created_at: Date;
         content: string;
         match_id: string;
+        conversation_id: string | null;
         sender_id: string;
     }[]>;
 }

@@ -27,6 +27,11 @@ export declare class UsersRepository {
         created_at: Date;
         updated_at: Date;
     } | null>;
+    searchByUsername(query: string, limit: number): Promise<{
+        username: string;
+        id: string;
+        avatar_url: string | null;
+    }[]>;
     update(id: string, data: Prisma.usersUpdateInput): Promise<{
         email: string;
         username: string;

@@ -1,9 +1,19 @@
 import { Request as ExpressRequest } from 'express';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SearchUsersQueryDto } from './dto/search-users-query.dto';
 export declare class UsersController {
     private usersService;
     constructor(usersService: UsersService);
+    searchUsers(req: ExpressRequest & {
+        user?: {
+            id: string;
+        };
+    }, query: SearchUsersQueryDto): Promise<{
+        username: string;
+        id: string;
+        avatar_url: string | null;
+    }[]>;
     getMyProfile(req: ExpressRequest & {
         user?: {
             id: string;

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HomeShellScreen extends StatefulWidget {
+import 'home_friends_screen.dart';
+import 'home_messages_screen.dart';
+
+class HomeShellScreen extends ConsumerStatefulWidget {
   const HomeShellScreen({super.key});
 
   @override
-  State<HomeShellScreen> createState() => _HomeShellScreenState();
+  ConsumerState<HomeShellScreen> createState() => _HomeShellScreenState();
 }
 
-class _HomeShellScreenState extends State<HomeShellScreen> {
+class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
   int _currentIndex = 0;
 
   @override
@@ -16,8 +20,8 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: const [
-          Center(child: Text('Home')),
-          Center(child: Text('Messages')),
+          HomeFriendsScreen(),
+          HomeMessagesScreen(),
           Center(child: Text('Profile')),
         ],
       ),
@@ -49,4 +53,3 @@ class _HomeShellScreenState extends State<HomeShellScreen> {
     );
   }
 }
-

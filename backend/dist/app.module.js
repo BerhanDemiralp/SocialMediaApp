@@ -19,6 +19,8 @@ const matches_module_1 = require("./matches/matches.module");
 const friends_module_1 = require("./friends/friends.module");
 const groups_module_1 = require("./groups/groups.module");
 const daily_questions_module_1 = require("./daily-questions/daily-questions.module");
+const matching_engine_module_1 = require("./matching-engine/matching-engine.module");
+const conversations_module_1 = require("./conversations/conversations.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -34,6 +36,8 @@ exports.AppModule = AppModule = __decorate([
             friends_module_1.FriendsModule,
             groups_module_1.GroupsModule,
             daily_questions_module_1.DailyQuestionsModule,
+            matching_engine_module_1.MatchingEngineModule,
+            conversations_module_1.ConversationsModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [app_service_1.AppService],

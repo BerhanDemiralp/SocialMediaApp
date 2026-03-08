@@ -24,7 +24,7 @@ export class MatchingEngineService {
     );
 
     const assigned = new Set<string>();
-    const created = [];
+    const created: unknown[] = [];
 
     for (const user of users) {
       if (assigned.has(user.id)) {
@@ -157,4 +157,3 @@ export class MatchingEngineService {
     return this.matchingEngineRepository.setGroupOptIn(matchId, userId);
   }
 }
-

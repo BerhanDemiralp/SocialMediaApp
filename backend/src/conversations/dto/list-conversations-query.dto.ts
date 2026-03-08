@@ -11,5 +11,8 @@ export class ListConversationsQueryDto {
   @IsOptional()
   @IsString()
   cursor?: string;
-}
 
+  @IsOptional()
+  @IsString()
+  type?: string;
+}

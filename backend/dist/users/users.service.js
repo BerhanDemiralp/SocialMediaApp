@@ -56,6 +56,14 @@ let UsersService = class UsersService {
             updated_at: updatedUser.updated_at,
         };
     }
+    async searchUsers(query, limit, currentUserId) {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            throw new Error('Query is required');
+        }
+        const users = await this.usersRepository.searchByUsername(trimmed, limit || 20);
+        return users.filter((u) => u.id !== currentUserId);
+    }
 };
 exports.UsersService = UsersService;
 exports.UsersService = UsersService = __decorate([

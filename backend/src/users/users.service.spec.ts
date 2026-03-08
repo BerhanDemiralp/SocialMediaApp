@@ -9,6 +9,7 @@ describe('UsersService', () => {
     findById: jest.Mock;
     findByUsername: jest.Mock;
     update: jest.Mock;
+    searchByUsername: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -16,6 +17,7 @@ describe('UsersService', () => {
       findById: jest.fn(),
       findByUsername: jest.fn(),
       update: jest.fn(),
+      searchByUsername: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -163,6 +165,28 @@ describe('UsersService', () => {
       await expect(
         service.updateProfile('missing-id', { username: 'test' } as any),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('filters out current user from search results', async () => {
+      usersRepository.searchByUsername.mockResolvedValue([
+        { id: 'user-1', username: 'alice', avatar_url: null },
+        { id: 'user-2', username: 'bob', avatar_url: 'a.png' },
+      ]);
+
+      const result = await service.searchUsers('a', 10, 'user-1');
+
+      expect(usersRepository.searchByUsername).toHaveBeenCalledWith('a', 10);
+      expect(result).toEqual([
+        { id: 'user-2', username: 'bob', avatar_url: 'a.png' },
+      ]);
+    });
+
+    it('throws when query is empty', async () => {
+      await expect(
+        service.searchUsers('   ', 10, 'user-1'),
+      ).rejects.toThrow('Query is required');
     });
   });
 });

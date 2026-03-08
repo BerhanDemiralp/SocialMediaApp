@@ -17,20 +17,22 @@ export declare class EventsGateway implements OnGatewayConnection, OnGatewayDisc
     handleDisconnect(client: Socket): void;
     handleJoinMatch(client: Socket, data: {
         matchId: string;
-    }): {
+    }): Promise<{
         event: string;
         data: {
             matchId: string;
+            conversationId: string;
         };
-    };
+    }>;
     handleLeaveMatch(client: Socket, data: {
         matchId: string;
-    }): {
+    }): Promise<{
         event: string;
         data: {
             matchId: string;
+            conversationId: string;
         };
-    };
+    }>;
     handleMessage(client: Socket, data: {
         matchId: string;
         content: string;
@@ -41,13 +43,15 @@ export declare class EventsGateway implements OnGatewayConnection, OnGatewayDisc
             created_at: Date;
             content: string;
             match_id: string;
+            conversation_id: string | null;
             sender_id: string;
         };
     }>;
     handleTyping(client: Socket, data: {
         matchId: string;
         isTyping: boolean;
-    }): {
+    }): Promise<{
         event: string;
-    };
+    }>;
+    private ensureConversationForMatch;
 }
