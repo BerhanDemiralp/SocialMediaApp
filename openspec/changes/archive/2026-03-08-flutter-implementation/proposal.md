@@ -9,7 +9,7 @@ MOMENT already has a well-defined backend and domain model, but there is no prod
 - Create the core app shell: navigation, theming, error/loading states, and basic settings/profile surfaces.
 - Implement the daily question experience: answer flow, viewing friends’ answers as cards, and replying from a card into chat.
 - Implement the daily “Moment” pairing experience for friends and groups, including countdown/active window UI.
-- Implement the core chat experience: message list, composer, read-only vs writable states, and basic safety affordances (block/report entry points).
+- Implement the core chat experience: message list, composer, read-only vs writable states, and basic safety affordances (block/report entry points), consuming the unified conversations APIs and real-time `conversation:<id>` channels provided by backend conversations changes.
 - Integrate real-time updates via Socket.io and Supabase where appropriate (new messages, match status).
 - Integrate push notifications using FCM/APNS for key events (new match, new message, daily question reminder).
 - Establish analytics/telemetry hooks for key behavioral events (answer question, start chat, complete Moment).
@@ -26,6 +26,11 @@ MOMENT already has a well-defined backend and domain model, but there is no prod
 ### Modified Capabilities
 - `<existing-name>`: <what requirement is changing>
 
+## Dependencies
+
+- `conversations-backend-foundation`: Unified conversations domain model, APIs to list conversations and fetch paginated messages, and Socket.io `conversation:<id>` channels that the Flutter chat and inbox screens consume.
+- Follow-up messaging/backend changes for user search, friend requests, friend conversations, group conversations, and messaging UX polish (for example: `home-user-search-and-friend-requests-flow`, `friend-conversations-and-messaging-tab`, `group-match-conversations-integration`, `messaging-ux-polish-and-status-indicators`), which define the server-side behavior that this Flutter implementation integrates with.
+
 ## Impact
 
 - **Flutter codebase**
@@ -41,4 +46,3 @@ MOMENT already has a well-defined backend and domain model, but there is no prod
 - **Product & UX**
   - Establishes the baseline mobile experience for the habit loop (daily question → Moment pairing → conversation).
   - Provides a foundation for future experiments such as mini games and additional prompts while respecting constraints (no infinite feeds, cozy/non‑dating tone).
-

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConversationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -96,7 +97,7 @@ export class MatchingEngineRepository {
   ) {
     const expiresAt = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
 
-    return this.prisma.matches.create({
+    const match = await this.prisma.matches.create({
       data: {
         user_a_id: userAId,
         user_b_id: userBId,
@@ -106,6 +107,61 @@ export class MatchingEngineRepository {
         expires_at: expiresAt,
       },
     });
+
+    const isFriendMatch = matchType === 'friends';
+    const isGroupMatch = matchType === 'groups';
+
+    const participantIds = [userAId, userBId].filter(
+      (id, index, arr) => !!id && arr.indexOf(id) === index,
+    );
+
+    const participantsCreate = participantIds.map((userId) => ({
+      user: { connect: { id: userId } },
+    }));
+
+    if (isFriendMatch) {
+      const existingFriendConversation = await this.prisma.conversations.findFirst({
+        where: {
+          type: ConversationType.friend,
+          participants: {
+            some: { user_id: userAId },
+          },
+          AND: {
+            participants: {
+              some: { user_id: userBId },
+            },
+          },
+        },
+      });
+
+      if (!existingFriendConversation) {
+        await this.prisma.conversations.create({
+          data: {
+            type: ConversationType.friend,
+            title: null,
+            friend_match_id: match.id,
+            group_match_id: null,
+            participants: {
+              create: participantsCreate,
+            },
+          },
+        });
+      }
+    } else if (isGroupMatch) {
+      await this.prisma.conversations.create({
+        data: {
+          type: ConversationType.group_pair,
+          title: null,
+          friend_match_id: null,
+          group_match_id: match.id,
+          participants: {
+            create: participantsCreate,
+          },
+        },
+      });
+    }
+
+    return match;
   }
 
   async findMatchesToEvaluate(now: Date) {
@@ -194,4 +250,3 @@ export class MatchingEngineRepository {
     return null;
   }
 }
-

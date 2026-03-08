@@ -11,6 +11,7 @@ import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
 import { MatchingEngineModule } from './matching-engine/matching-engine.module';
+import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MatchingEngineModule } from './matching-engine/matching-engine.module';
     GroupsModule,
     DailyQuestionsModule,
     MatchingEngineModule,
+    ConversationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

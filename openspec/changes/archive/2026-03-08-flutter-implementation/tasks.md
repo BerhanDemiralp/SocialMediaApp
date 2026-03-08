@@ -28,8 +28,8 @@
 
 ## 5. Chat and real-time messaging
 
-- [x] 5.1 Implement chat repositories and data models for messages, threads, and participants
-- [x] 5.2 Integrate Socket.io (and/or Supabase real-time) for receiving new messages and status updates
+- [x] 5.1 Implement chat repositories and data models for messages, threads, and participants, based on the unified conversations APIs (conversation list, paginated messages) and conversation-scoped identifiers.
+- [x] 5.2 Integrate Socket.io (and/or Supabase real-time) for receiving new messages and status updates by subscribing to `conversation:<id>` channels defined in the conversations backend.
 - [x] 5.3 Build chat UI (message list, composer, send status indicators)
 - [x] 5.4 Implement handling for temporary vs permanent chats, including visual indicators and state transitions
 

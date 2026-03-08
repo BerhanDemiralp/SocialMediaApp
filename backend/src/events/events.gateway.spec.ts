@@ -7,12 +7,14 @@ describe('EventsGateway - sendMessage', () => {
   let prisma: {
     matches: { findUnique: jest.Mock };
     messages: { create: jest.Mock };
+    conversations: { findFirst: jest.Mock; create: jest.Mock };
   };
 
   beforeEach(() => {
     prisma = {
       matches: { findUnique: jest.fn() },
       messages: { create: jest.fn() },
+      conversations: { findFirst: jest.fn(), create: jest.fn() },
     };
 
     gateway = new EventsGateway(prisma as unknown as PrismaService);
@@ -30,11 +32,17 @@ describe('EventsGateway - sendMessage', () => {
       id: 'match-1',
       user_a_id: 'user-1',
       user_b_id: 'user-2',
+      match_type: 'friends',
+    });
+
+    prisma.conversations.findFirst.mockResolvedValue({
+      id: 'conv-1',
     });
 
     const storedMessage = {
       id: 'msg-1',
       match_id: 'match-1',
+      conversation_id: 'conv-1',
       sender_id: 'user-1',
       content: 'hello',
       created_at: new Date(),
@@ -50,10 +58,12 @@ describe('EventsGateway - sendMessage', () => {
     expect(prisma.messages.create).toHaveBeenCalledWith({
       data: {
         match_id: 'match-1',
+        conversation_id: 'conv-1',
         sender_id: 'user-1',
         content: 'hello',
       },
     });
+    expect(gateway.server.to).toHaveBeenCalledWith('conversation:conv-1');
     expect(gateway.server.to).toHaveBeenCalledWith('match:match-1');
     expect(result).toEqual({ event: 'messageSent', data: storedMessage });
   });
@@ -66,6 +76,11 @@ describe('EventsGateway - sendMessage', () => {
       id: 'match-1',
       user_a_id: 'user-1',
       user_b_id: 'user-2',
+      match_type: 'friends',
+    });
+
+    prisma.conversations.findFirst.mockResolvedValue({
+      id: 'conv-1',
     });
 
     await expect(gateway.handleMessage(client, data)).rejects.toBeInstanceOf(
