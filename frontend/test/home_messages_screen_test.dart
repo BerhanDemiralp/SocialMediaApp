@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:moment_app/features/home/data/friend_conversations_api_client.dart';
+import 'package:moment_app/features/home/data/friends_api_client.dart';
 import 'package:moment_app/features/home/presentation/home_messages_screen.dart';
 
 void main() {
@@ -13,6 +14,9 @@ void main() {
         overrides: [
           friendConversationsProvider.overrideWith(
             (ref) async => <FriendConversationSummary>[],
+          ),
+          messagesFriendsProvider.overrideWith(
+            (ref) async => <FriendSummary>[],
           ),
         ],
         child: const MaterialApp(
@@ -25,13 +29,19 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No conversations yet'), findsOneWidget);
+    expect(find.textContaining('You have no friends yet.'), findsOneWidget);
   });
 
   testWidgets('renders friend conversations list',
       (WidgetTester tester) async {
+    final friends = <FriendSummary>[
+      const FriendSummary(id: 'friend-1', username: 'Alice', avatarUrl: null),
+      const FriendSummary(id: 'friend-2', username: 'Bob', avatarUrl: null),
+    ];
+
     final items = <FriendConversationSummary>[
       FriendConversationSummary(
+        friendId: 'friend-1',
         conversationId: 'conv-1',
         matchId: 'match-1',
         displayName: 'Alice',
@@ -40,6 +50,7 @@ void main() {
         lastMessageAt: DateTime.now(),
       ),
       FriendConversationSummary(
+        friendId: 'friend-2',
         conversationId: 'conv-2',
         matchId: null,
         displayName: 'Bob',
@@ -52,6 +63,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          messagesFriendsProvider.overrideWith(
+            (ref) async => friends,
+          ),
           friendConversationsProvider.overrideWith(
             (ref) async => items,
           ),
@@ -72,4 +86,3 @@ void main() {
     expect(find.text('What\'s up?'), findsOneWidget);
   });
 }
-

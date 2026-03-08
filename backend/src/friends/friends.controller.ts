@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -113,5 +114,18 @@ export class FriendsController {
 
     return this.friendsService.listOutgoingRequests(userId);
   }
-}
 
+  @Delete(':id')
+  async removeFriend(
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Param('id') friendId: string,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    return this.friendsService.removeFriend(userId, friendId);
+  }
+}

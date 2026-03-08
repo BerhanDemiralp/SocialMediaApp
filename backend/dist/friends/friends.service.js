@@ -12,21 +12,31 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FriendsService = void 0;
 const common_1 = require("@nestjs/common");
 const friends_repository_1 = require("./friends.repository");
+const conversations_service_1 = require("../conversations/conversations.service");
 let FriendsService = class FriendsService {
     friendsRepository;
-    constructor(friendsRepository) {
+    conversationsService;
+    constructor(friendsRepository, conversationsService) {
         this.friendsRepository = friendsRepository;
+        this.conversationsService = conversationsService;
     }
     async sendFriendRequest(requesterId, targetUserId) {
         if (requesterId === targetUserId) {
             throw new common_1.BadRequestException('You cannot send a request to yourself');
         }
         const existing = await this.friendsRepository.findFriendshipBetweenUsers(requesterId, targetUserId);
-        if (existing && existing.status === 'pending') {
-            throw new common_1.BadRequestException('A pending friend request already exists');
-        }
-        if (existing && existing.status === 'accepted') {
-            throw new common_1.BadRequestException('Users are already friends');
+        if (existing) {
+            if (existing.status === 'pending') {
+                throw new common_1.BadRequestException('A pending friend request already exists');
+            }
+            if (existing.status === 'accepted') {
+                throw new common_1.BadRequestException('Users are already friends');
+            }
+            if ((existing.status === 'canceled' || existing.status === 'rejected') &&
+                existing.requester_id === requesterId &&
+                existing.addressee_id === targetUserId) {
+                return this.friendsRepository.updateFriendshipStatus(existing.id, 'pending');
+            }
         }
         return this.friendsRepository.createFriendRequest(requesterId, targetUserId);
     }
@@ -41,7 +51,9 @@ let FriendsService = class FriendsService {
         if (friendship.status !== 'pending') {
             throw new common_1.BadRequestException('Only pending friend requests can be accepted');
         }
-        return this.friendsRepository.updateFriendshipStatus(requestId, 'accepted');
+        const updated = await this.friendsRepository.updateFriendshipStatus(requestId, 'accepted');
+        await this.conversationsService.ensureFriendConversationBetweenUsers(updated.requester_id, updated.addressee_id);
+        return updated;
     }
     async rejectRequest(userId, requestId) {
         const friendship = await this.friendsRepository.findFriendshipById(requestId);
@@ -108,10 +120,18 @@ let FriendsService = class FriendsService {
             created_at: request.created_at,
         }));
     }
+    async removeFriend(userId, friendId) {
+        const friendship = await this.friendsRepository.findFriendshipBetweenUsers(userId, friendId);
+        if (!friendship || friendship.status !== 'accepted') {
+            throw new common_1.NotFoundException('Friendship not found');
+        }
+        return this.friendsRepository.updateFriendshipStatus(friendship.id, 'rejected');
+    }
 };
 exports.FriendsService = FriendsService;
 exports.FriendsService = FriendsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [friends_repository_1.FriendsRepository])
+    __metadata("design:paramtypes", [friends_repository_1.FriendsRepository,
+        conversations_service_1.ConversationsService])
 ], FriendsService);
 //# sourceMappingURL=friends.service.js.map

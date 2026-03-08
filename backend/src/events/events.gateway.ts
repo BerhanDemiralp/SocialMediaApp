@@ -105,6 +105,31 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
     }
 
+    // For friend matches, only allow sending if users are still friends.
+    if (match.match_type === 'friends') {
+      const friendship = await this.prisma.friendships.findFirst({
+        where: {
+          status: 'accepted',
+          OR: [
+            {
+              requester_id: match.user_a_id,
+              addressee_id: match.user_b_id,
+            },
+            {
+              requester_id: match.user_b_id,
+              addressee_id: match.user_a_id,
+            },
+          ],
+        },
+      });
+
+      if (!friendship) {
+        throw new WsException(
+          'Chat is read-only because you are no longer friends',
+        );
+      }
+    }
+
     const message = await this.prisma.messages.create({
       data: {
         match_id: matchId,

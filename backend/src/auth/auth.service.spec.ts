@@ -197,21 +197,33 @@ describe('AuthService', () => {
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
-    it('should throw UnauthorizedException when user not found in database', async () => {
-      const supabaseUser = { id: 'user-id' };
+    it('creates local user on login when missing', async () => {
+      const loginDto = { email: 'user@example.com', password: 'password123' };
+
+      const supabaseUser = {
+        id: 'user-id',
+        email: loginDto.email,
+        user_metadata: { username: 'testuser' },
+      };
+      const supabaseSession = { access_token: 'token' };
+
       supabaseService.client.auth.signInWithPassword.mockResolvedValue({
-        data: { user: supabaseUser, session: { access_token: 'token' } },
+        data: { user: supabaseUser, session: supabaseSession },
         error: null,
       });
 
       prismaService.users.findUnique.mockResolvedValue(null);
+      prismaService.users.create.mockResolvedValue({
+        id: 'user-id',
+        email: loginDto.email,
+        username: 'testuser',
+        avatar_url: null,
+      });
 
-      await expect(
-        service.login({
-          email: 'user@example.com',
-          password: 'password123',
-        } as any),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
+      const result = await service.login(loginDto as any);
+
+      expect(prismaService.users.create).toHaveBeenCalled();
+      expect(result.user.id).toBe('user-id');
     });
   });
 
@@ -238,16 +250,28 @@ describe('AuthService', () => {
 
   describe('validateToken', () => {
     it('should return user when token is valid', async () => {
-      const user = { id: 'user-id', email: 'user@example.com' };
+      const supaUser = { id: 'user-id', email: 'user@example.com' };
       supabaseService.client.auth.getUser.mockResolvedValue({
-        data: { user },
+        data: { user: supaUser },
         error: null,
+      });
+
+      prismaService.users.findUnique.mockResolvedValue({
+        id: 'user-id',
+        email: 'user@example.com',
+        username: 'testuser',
+        avatar_url: null,
       });
 
       const result = await service.validateToken('token');
 
       expect(supabaseService.client.auth.getUser).toHaveBeenCalledWith('token');
-      expect(result).toEqual(user);
+      expect(result).toEqual({
+        id: 'user-id',
+        email: 'user@example.com',
+        username: 'testuser',
+        avatar_url: null,
+      });
     });
 
     it('should throw UnauthorizedException when Supabase returns error', async () => {

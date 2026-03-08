@@ -18,6 +18,9 @@ describe('FriendsService', () => {
     listIncomingRequests: jest.Mock;
     listOutgoingRequests: jest.Mock;
   };
+  let conversationsService: {
+    ensureFriendConversationBetweenUsers: jest.Mock;
+  };
 
   beforeEach(async () => {
     repo = {
@@ -30,12 +33,20 @@ describe('FriendsService', () => {
       listOutgoingRequests: jest.fn(),
     };
 
+    conversationsService = {
+      ensureFriendConversationBetweenUsers: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FriendsService,
         {
           provide: FriendsRepository,
           useValue: repo,
+        },
+        {
+          provide: require('../conversations/conversations.service').ConversationsService,
+          useValue: conversationsService,
         },
       ],
     }).compile();
@@ -70,6 +81,28 @@ describe('FriendsService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('re-activates a canceled request from the same requester', async () => {
+    repo.findFriendshipBetweenUsers.mockResolvedValue({
+      id: 'req-1',
+      requester_id: 'user-1',
+      addressee_id: 'user-2',
+      status: 'canceled',
+    });
+    repo.updateFriendshipStatus.mockResolvedValue({
+      id: 'req-1',
+      status: 'pending',
+    });
+
+    const result = await service.sendFriendRequest('user-1', 'user-2');
+
+    expect(repo.createFriendRequest).not.toHaveBeenCalled();
+    expect(repo.updateFriendshipStatus).toHaveBeenCalledWith(
+      'req-1',
+      'pending',
+    );
+    expect(result).toEqual({ id: 'req-1', status: 'pending' });
+  });
+
   it('accepts a pending request for the addressee', async () => {
     repo.findFriendshipById.mockResolvedValue({
       id: 'req-1',
@@ -77,7 +110,12 @@ describe('FriendsService', () => {
       addressee_id: 'user-2',
       status: 'pending',
     });
-    repo.updateFriendshipStatus.mockResolvedValue({ id: 'req-1' });
+    repo.updateFriendshipStatus.mockResolvedValue({
+      id: 'req-1',
+      requester_id: 'user-1',
+      addressee_id: 'user-2',
+      status: 'accepted',
+    });
 
     const result = await service.acceptRequest('user-2', 'req-1');
 
@@ -85,7 +123,16 @@ describe('FriendsService', () => {
       'req-1',
       'accepted',
     );
-    expect(result).toEqual({ id: 'req-1' });
+    expect(conversationsService.ensureFriendConversationBetweenUsers).toHaveBeenCalledWith(
+      'user-1',
+      'user-2',
+    );
+    expect(result).toEqual({
+      id: 'req-1',
+      requester_id: 'user-1',
+      addressee_id: 'user-2',
+      status: 'accepted',
+    });
   });
 
   it('throws NotFound when accepting unknown request', async () => {
@@ -126,4 +173,3 @@ describe('FriendsService', () => {
     ]);
   });
 });
-

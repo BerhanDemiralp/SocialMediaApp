@@ -26,5 +26,10 @@ export declare class AuthService {
     logout(): Promise<{
         message: string;
     }>;
-    validateToken(token: string): Promise<import("@supabase/auth-js").User>;
+    validateToken(token: string): Promise<{
+        id: string;
+        email: string;
+        username: string;
+        avatar_url: string | null;
+    }>;
 }

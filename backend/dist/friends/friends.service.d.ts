@@ -1,38 +1,40 @@
 import { FriendsRepository } from './friends.repository';
+import { ConversationsService } from '../conversations/conversations.service';
 export declare class FriendsService {
     private friendsRepository;
-    constructor(friendsRepository: FriendsRepository);
+    private conversationsService;
+    constructor(friendsRepository: FriendsRepository, conversationsService: ConversationsService);
     sendFriendRequest(requesterId: string, targetUserId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        status: string;
-        addressee_id: string;
         requester_id: string;
+        addressee_id: string;
+        status: string;
     }>;
     acceptRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        status: string;
-        addressee_id: string;
         requester_id: string;
+        addressee_id: string;
+        status: string;
     }>;
     rejectRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        status: string;
-        addressee_id: string;
         requester_id: string;
+        addressee_id: string;
+        status: string;
     }>;
     cancelRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        status: string;
-        addressee_id: string;
         requester_id: string;
+        addressee_id: string;
+        status: string;
     }>;
     listFriends(userId: string): Promise<{
         id: string;
@@ -59,4 +61,12 @@ export declare class FriendsService {
         status: string;
         created_at: Date;
     }[]>;
+    removeFriend(userId: string, friendId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        requester_id: string;
+        addressee_id: string;
+        status: string;
+    }>;
 }

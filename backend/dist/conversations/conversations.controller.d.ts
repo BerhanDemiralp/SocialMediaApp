@@ -44,6 +44,20 @@ export declare class ConversationsController {
         }[];
         nextCursor: string | null;
     }>;
+    createConversationMessage(conversationId: string, req: ExpressRequest & {
+        user?: {
+            id: string;
+        };
+    }, body: {
+        content?: string;
+    }): Promise<{
+        id: string;
+        created_at: Date;
+        conversation_id: string | null;
+        match_id: string;
+        sender_id: string;
+        content: string;
+    }>;
     createOrReuseFriendConversation(req: ExpressRequest & {
         user?: {
             id: string;

@@ -3,15 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/chat_message.dart';
 import 'chat_controller.dart';
+import '../../home/presentation/home_messages_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     super.key,
-    required this.matchId,
+    this.matchId,
+    this.conversationId,
     this.isTemporary = false,
-  });
+  }) : assert(matchId != null || conversationId != null,
+            'Either matchId or conversationId must be provided');
 
-  final String matchId;
+  final String? matchId;
+  final String? conversationId;
   final bool isTemporary;
 
   @override
@@ -29,8 +33,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState =
-        ref.watch(chatControllerProvider(widget.matchId));
+    final chatState = widget.matchId != null
+        ? ref.watch(chatControllerProvider(widget.matchId!))
+        : ref.watch(
+            conversationChatControllerProvider(widget.conversationId!),
+          );
     final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
@@ -101,9 +108,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 minLines: 1,
                 maxLines: 4,
                 onChanged: (value) {
-                  ref
-                      .read(chatControllerProvider(widget.matchId).notifier)
-                      .setTyping(value.isNotEmpty);
+                  final matchId = widget.matchId;
+                  if (matchId != null) {
+                    ref
+                        .read(chatControllerProvider(matchId).notifier)
+                        .setTyping(value.isNotEmpty);
+                  }
                 },
                 decoration: const InputDecoration(
                   hintText: 'Message...',
@@ -120,11 +130,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   : () {
                       final text = _controller.text;
                       _controller.clear();
-                      ref
-                          .read(
-                            chatControllerProvider(widget.matchId).notifier,
-                          )
-                          .sendMessage(text);
+                      if (widget.matchId != null) {
+                        ref
+                            .read(chatControllerProvider(widget.matchId!).notifier)
+                            .sendMessage(text);
+                      } else if (widget.conversationId != null) {
+                        ref
+                            .read(conversationChatControllerProvider(widget.conversationId!).notifier)
+                            .sendMessage(text);
+                        // Refresh conversations summaries so Messages tab shows the latest message.
+                        ref.invalidate(friendConversationsProvider);
+                      }
                     },
             ),
           ],

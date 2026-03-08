@@ -16,9 +16,11 @@ describe('ConversationsService', () => {
       findUnique: jest.Mock;
       findFirst: jest.Mock;
       create: jest.Mock;
+      update: jest.Mock;
     };
     messages: { findMany: jest.Mock };
     friendships: { findFirst: jest.Mock };
+    matches: { create: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -28,12 +30,16 @@ describe('ConversationsService', () => {
         findUnique: jest.fn(),
         findFirst: jest.fn(),
         create: jest.fn(),
+        update: jest.fn(),
       },
       messages: {
         findMany: jest.fn(),
       },
       friendships: {
         findFirst: jest.fn(),
+      },
+      matches: {
+        create: jest.fn(),
       },
     };
 
@@ -176,6 +182,16 @@ describe('ConversationsService', () => {
 
     prisma.conversations.create.mockResolvedValue({
       id: 'conv-1',
+      friend_match_id: null,
+    });
+
+    prisma.matches.create.mockResolvedValue({
+      id: 'match-1',
+    });
+
+    prisma.conversations.update.mockResolvedValue({
+      id: 'conv-1',
+      friend_match_id: 'match-1',
     });
 
     prisma.conversations.findUnique.mockResolvedValue({
@@ -221,6 +237,7 @@ describe('ConversationsService', () => {
 
     prisma.conversations.findFirst.mockResolvedValueOnce({
       id: 'conv-1',
+      friend_match_id: 'match-1',
     });
 
     prisma.conversations.findUnique.mockResolvedValue({

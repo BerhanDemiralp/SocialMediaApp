@@ -44,6 +44,14 @@ let ConversationsController = class ConversationsController {
         const { limit, cursor } = query;
         return this.conversationsService.getConversationMessages(conversationId, userId, limit, cursor);
     }
+    async createConversationMessage(conversationId, req, body) {
+        const userId = req.user?.id;
+        if (!userId) {
+            throw new common_1.ForbiddenException('Authenticated user context is missing');
+        }
+        const content = body.content ?? '';
+        return this.conversationsService.createMessageForConversation(conversationId, userId, content);
+    }
     async createOrReuseFriendConversation(req, body) {
         const userId = req.user?.id;
         if (!userId) {
@@ -73,6 +81,15 @@ __decorate([
     __metadata("design:paramtypes", [String, Object, get_conversation_messages_query_dto_1.GetConversationMessagesQueryDto]),
     __metadata("design:returntype", Promise)
 ], ConversationsController.prototype, "getConversationMessages", null);
+__decorate([
+    (0, common_1.Post)(':id/messages'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Request)()),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], ConversationsController.prototype, "createConversationMessage", null);
 __decorate([
     (0, common_1.Post)('friends'),
     __param(0, (0, common_1.Request)()),

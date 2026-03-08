@@ -63,6 +63,26 @@ let EventsGateway = class EventsGateway {
         if (match.user_a_id !== userId && match.user_b_id !== userId) {
             throw new websockets_1.WsException('You are not allowed to send messages for this match');
         }
+        if (match.match_type === 'friends') {
+            const friendship = await this.prisma.friendships.findFirst({
+                where: {
+                    status: 'accepted',
+                    OR: [
+                        {
+                            requester_id: match.user_a_id,
+                            addressee_id: match.user_b_id,
+                        },
+                        {
+                            requester_id: match.user_b_id,
+                            addressee_id: match.user_a_id,
+                        },
+                    ],
+                },
+            });
+            if (!friendship) {
+                throw new websockets_1.WsException('Chat is read-only because you are no longer friends');
+            }
+        }
         const message = await this.prisma.messages.create({
             data: {
                 match_id: matchId,

@@ -24,5 +24,10 @@ class HomeMessagingRepository {
   Future<List<FriendConversationSummary>> loadFriendConversations() {
     return _apiClient.listFriendConversations();
   }
-}
 
+  Future<FriendConversationSummary> ensureFriendConversation(
+    String friendId,
+  ) {
+    return _apiClient.ensureFriendConversation(friendId: friendId);
+  }
+}

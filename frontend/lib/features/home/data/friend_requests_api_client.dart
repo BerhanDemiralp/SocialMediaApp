@@ -8,12 +8,18 @@ import '../../../core/env/app_env.dart';
 class FriendRequestItem {
   const FriendRequestItem({
     required this.id,
+    required this.userId,
     required this.username,
     required this.avatarUrl,
     required this.direction,
   });
 
+  /// ID of the friendship / friend request record.
   final String id;
+
+  /// ID of the other user for this request (requester for incoming, addressee for outgoing).
+  final String userId;
+
   final String username;
   final String? avatarUrl;
   final FriendRequestDirection direction;
@@ -78,15 +84,17 @@ class FriendRequestsApiClient {
     final List<dynamic> body = jsonDecode(response.body) as List<dynamic>;
 
     return body
-        .map(
-          (e) => FriendRequestItem(
-            id: (e as Map<String, dynamic>)['id'] as String,
-            username: (e['from'] as Map<String, dynamic>)['username'] as String,
-            avatarUrl:
-                (e['from'] as Map<String, dynamic>)['avatar_url'] as String?,
+        .map((e) {
+          final map = e as Map<String, dynamic>;
+          final from = map['from'] as Map<String, dynamic>;
+          return FriendRequestItem(
+            id: map['id'] as String,
+            userId: from['id'] as String,
+            username: from['username'] as String,
+            avatarUrl: from['avatar_url'] as String?,
             direction: FriendRequestDirection.incoming,
-          ),
-        )
+          );
+        })
         .toList();
   }
 
@@ -114,15 +122,17 @@ class FriendRequestsApiClient {
     final List<dynamic> body = jsonDecode(response.body) as List<dynamic>;
 
     return body
-        .map(
-          (e) => FriendRequestItem(
-            id: (e as Map<String, dynamic>)['id'] as String,
-            username: (e['to'] as Map<String, dynamic>)['username'] as String,
-            avatarUrl:
-                (e['to'] as Map<String, dynamic>)['avatar_url'] as String?,
+        .map((e) {
+          final map = e as Map<String, dynamic>;
+          final to = map['to'] as Map<String, dynamic>;
+          return FriendRequestItem(
+            id: map['id'] as String,
+            userId: to['id'] as String,
+            username: to['username'] as String,
+            avatarUrl: to['avatar_url'] as String?,
             direction: FriendRequestDirection.outgoing,
-          ),
-        )
+          );
+        })
         .toList();
   }
 
@@ -160,4 +170,3 @@ class FriendRequestsApiClient {
     }
   }
 }
-

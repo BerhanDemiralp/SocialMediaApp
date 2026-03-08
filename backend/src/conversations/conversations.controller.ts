@@ -66,6 +66,27 @@ export class ConversationsController {
     return this.conversationsService.getConversationMessages(conversationId, userId, limit, cursor);
   }
 
+  @Post(':id/messages')
+  async createConversationMessage(
+    @Param('id') conversationId: string,
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Body() body: { content?: string },
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    const content = body.content ?? '';
+
+    return this.conversationsService.createMessageForConversation(
+      conversationId,
+      userId,
+      content,
+    );
+  }
+
   @Post('friends')
   async createOrReuseFriendConversation(
     @Request() req: ExpressRequest & { user?: { id: string } },

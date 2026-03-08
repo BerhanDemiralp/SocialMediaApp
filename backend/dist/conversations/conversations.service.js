@@ -54,6 +54,57 @@ let ConversationsService = class ConversationsService {
             nextCursor,
         };
     }
+    async createMessageForConversation(conversationId, userId, content) {
+        if (!content.trim()) {
+            throw new common_1.BadRequestException('Message content cannot be empty');
+        }
+        const conversation = await this.prisma.conversations.findUnique({
+            where: { id: conversationId },
+            include: {
+                participants: true,
+            },
+        });
+        if (!conversation) {
+            throw new common_1.NotFoundException('Conversation not found');
+        }
+        const isParticipant = conversation.participants.some((p) => p.user_id === userId);
+        if (!isParticipant) {
+            throw new common_1.ForbiddenException('You are not allowed to send messages in this conversation');
+        }
+        if (conversation.type === client_1.ConversationType.friend) {
+            const participantIds = conversation.participants
+                .map((p) => p.user_id)
+                .filter((id, index, arr) => !!id && arr.indexOf(id) === index);
+            if (participantIds.length === 2) {
+                const [userAId, userBId] = participantIds;
+                const friendship = await this.prisma.friendships.findFirst({
+                    where: {
+                        status: 'accepted',
+                        OR: [
+                            { requester_id: userAId, addressee_id: userBId },
+                            { requester_id: userBId, addressee_id: userAId },
+                        ],
+                    },
+                });
+                if (!friendship) {
+                    throw new common_1.ForbiddenException('Chat is read-only because you are no longer friends');
+                }
+            }
+        }
+        const matchId = conversation.friend_match_id ?? conversation.group_match_id;
+        if (!matchId) {
+            throw new common_1.BadRequestException('Conversation is not linked to a match; cannot send messages.');
+        }
+        const message = await this.prisma.messages.create({
+            data: {
+                match_id: matchId,
+                conversation_id: conversation.id,
+                sender_id: userId,
+                content: content.trim(),
+            },
+        });
+        return message;
+    }
     async ensureFriendConversationBetweenUsers(userId, friendId) {
         if (userId === friendId) {
             throw new common_1.BadRequestException('You cannot create a conversation with yourself');
@@ -99,6 +150,23 @@ let ConversationsService = class ConversationsService {
                     },
                 },
             });
+        }
+        if (!conversation.friend_match_id) {
+            const match = await this.prisma.matches.create({
+                data: {
+                    user_a_id: userId,
+                    user_b_id: friendId,
+                    match_type: 'friends',
+                    status: 'active',
+                    scheduled_at: new Date(),
+                    expires_at: new Date(Date.now() + 60 * 60 * 1000),
+                },
+            });
+            await this.prisma.conversations.update({
+                where: { id: conversation.id },
+                data: { friend_match_id: match.id },
+            });
+            conversation.friend_match_id = match.id;
         }
         const conversationWithRelations = await this.prisma.conversations.findUnique({
             where: { id: conversation.id },

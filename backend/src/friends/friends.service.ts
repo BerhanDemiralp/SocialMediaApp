@@ -5,10 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FriendsRepository } from './friends.repository';
+import { ConversationsService } from '../conversations/conversations.service';
 
 @Injectable()
 export class FriendsService {
-  constructor(private friendsRepository: FriendsRepository) {}
+  constructor(
+    private friendsRepository: FriendsRepository,
+    private conversationsService: ConversationsService,
+  ) {}
 
   async sendFriendRequest(requesterId: string, targetUserId: string) {
     if (requesterId === targetUserId) {
@@ -20,12 +24,29 @@ export class FriendsService {
       targetUserId,
     );
 
-    if (existing && existing.status === 'pending') {
-      throw new BadRequestException('A pending friend request already exists');
-    }
+    if (existing) {
+      if (existing.status === 'pending') {
+        throw new BadRequestException(
+          'A pending friend request already exists',
+        );
+      }
 
-    if (existing && existing.status === 'accepted') {
-      throw new BadRequestException('Users are already friends');
+      if (existing.status === 'accepted') {
+        throw new BadRequestException('Users are already friends');
+      }
+
+      // Allow sending a new request after a previous one was canceled or rejected
+      // by re-activating the existing friendship record instead of creating a new one.
+      if (
+        (existing.status === 'canceled' || existing.status === 'rejected') &&
+        existing.requester_id === requesterId &&
+        existing.addressee_id === targetUserId
+      ) {
+        return this.friendsRepository.updateFriendshipStatus(
+          existing.id,
+          'pending',
+        );
+      }
     }
 
     return this.friendsRepository.createFriendRequest(
@@ -52,10 +73,18 @@ export class FriendsService {
       );
     }
 
-    return this.friendsRepository.updateFriendshipStatus(
+    const updated = await this.friendsRepository.updateFriendshipStatus(
       requestId,
       'accepted',
     );
+
+    // Ensure a friend conversation (and backing match) exists for this friendship.
+    await this.conversationsService.ensureFriendConversationBetweenUsers(
+      updated.requester_id,
+      updated.addressee_id,
+    );
+
+    return updated;
   }
 
   async rejectRequest(userId: string, requestId: string) {
@@ -147,5 +176,18 @@ export class FriendsService {
       created_at: request.created_at,
     }));
   }
-}
 
+  async removeFriend(userId: string, friendId: string) {
+    const friendship =
+      await this.friendsRepository.findFriendshipBetweenUsers(userId, friendId);
+
+    if (!friendship || friendship.status !== 'accepted') {
+      throw new NotFoundException('Friendship not found');
+    }
+
+    return this.friendsRepository.updateFriendshipStatus(
+      friendship.id,
+      'rejected',
+    );
+  }
+}

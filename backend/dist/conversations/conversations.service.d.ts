@@ -22,6 +22,14 @@ export declare class ConversationsService {
         }[];
         nextCursor: string | null;
     }>;
+    createMessageForConversation(conversationId: string, userId: string, content: string): Promise<{
+        id: string;
+        created_at: Date;
+        conversation_id: string | null;
+        match_id: string;
+        sender_id: string;
+        content: string;
+    }>;
     ensureFriendConversationBetweenUsers(userId: string, friendId: string): Promise<{
         id: string;
         type: import("@prisma/client").$Enums.ConversationType;

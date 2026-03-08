@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics/app_analytics.dart';
 import '../data/friend_conversations_api_client.dart';
+import '../data/friends_api_client.dart';
 import '../data/home_messaging_repository.dart';
 
 final friendConversationsProvider =
@@ -12,74 +15,111 @@ final friendConversationsProvider =
   return repo.loadFriendConversations();
 });
 
+final messagesFriendsProvider =
+    FutureProvider.autoDispose<List<FriendSummary>>((ref) async {
+  final supabaseClient = Supabase.instance.client;
+  final httpClient = http.Client();
+  final apiClient = FriendsApiClient(httpClient, supabaseClient);
+
+  ref.onDispose(httpClient.close);
+
+  return apiClient.listFriends();
+});
+
 class HomeMessagesScreen extends ConsumerWidget {
   const HomeMessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conversationsAsync = ref.watch(friendConversationsProvider);
+    final friendsAsync = ref.watch(messagesFriendsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(friendConversationsProvider);
+        ref.invalidate(messagesFriendsProvider);
       },
-      child: conversationsAsync.when(
-        data: (items) {
-          if (items.isEmpty) {
+      child: friendsAsync.when(
+        data: (friends) {
+          if (friends.isEmpty) {
             return ListView(
               padding: const EdgeInsets.all(16),
               children: const [
                 SizedBox(height: 24),
-                Text(
-                  'No conversations yet.\nStart by messaging a friend from the Home tab.',
-                ),
+                Text('You have no friends yet.'),
               ],
             );
           }
 
+          final conversations = conversationsAsync.maybeWhen(
+            data: (items) => items,
+            orElse: () => const <FriendConversationSummary>[],
+          );
+
+          final convoByFriendId = {
+            for (final c in conversations) c.friendId: c,
+          };
+
           return ListView.builder(
             padding: const EdgeInsets.all(8),
-            itemCount: items.length,
+            itemCount: friends.length,
             itemBuilder: (context, index) {
-              final convo = items[index];
+              final friend = friends[index];
+              final convo = convoByFriendId[friend.id];
               final analytics = ref.read(appAnalyticsProvider);
 
               return ListTile(
                 leading: CircleAvatar(
                   child: Text(
-                    convo.displayName.isNotEmpty
-                        ? convo.displayName[0].toUpperCase()
+                    friend.username.isNotEmpty
+                        ? friend.username[0].toUpperCase()
                         : '?',
                   ),
                 ),
-                title: Text(convo.displayName),
+                title: Text(friend.username),
                 subtitle: Text(
-                  convo.lastMessagePreview ?? 'No messages yet.',
+                  convo?.lastMessagePreview ?? 'No messages yet.',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                trailing: convo.lastMessageAt != null
+                trailing: convo?.lastMessageAt != null
                     ? Text(
-                        _formatTime(convo.lastMessageAt!),
+                        _formatTime(convo!.lastMessageAt!),
                         style: Theme.of(context).textTheme.bodySmall,
                       )
                     : null,
-                onTap: () {
-                  analytics.trackEvent('friend_conversation_opened', {
-                    'conversation_id': convo.conversationId,
-                    'match_id': convo.matchId,
-                  });
+                onTap: () async {
+                  final repo = ref.read(homeMessagingRepositoryProvider);
 
-                  if (convo.matchId != null) {
-                    context.push('/chat/${convo.matchId}');
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'This conversation cannot be opened yet.',
+                  try {
+                    // If we already have a conversation for this friend, reuse it
+                    // to allow opening historical chats even if friendship has changed.
+                    final conversationId = convo != null
+                        ? convo.conversationId
+                        : (await repo.ensureFriendConversation(friend.id))
+                            .conversationId;
+
+                    analytics.trackEvent('friend_conversation_opened', {
+                      'conversation_id': conversationId,
+                    });
+
+                    // Refresh cached conversations list when we had to ensure it.
+                    if (convo == null) {
+                      ref.invalidate(friendConversationsProvider);
+                    }
+
+                    if (context.mounted) {
+                      context.push('/conversation/$conversationId');
+                    }
+                  } catch (_) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content:
+                              Text('Could not open conversation with friend.'),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   }
                 },
               );
@@ -91,7 +131,7 @@ class HomeMessagesScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: const [
             SizedBox(height: 24),
-            Text('Error loading conversations. Pull to retry.'),
+            Text('Error loading friends. Pull to retry.'),
           ],
         ),
       ),
@@ -113,4 +153,3 @@ class HomeMessagesScreen extends ConsumerWidget {
     return '${time.hour}:$minutes';
   }
 }
-

@@ -27,6 +27,16 @@ class ChatRepository {
     return _apiClient.getMessages(matchId: matchId, limit: limit);
   }
 
+  Future<List<ChatMessage>> loadMessagesForConversation({
+    required String conversationId,
+    int limit = 50,
+  }) {
+    return _apiClient.getMessagesForConversation(
+      conversationId: conversationId,
+      limit: limit,
+    );
+  }
+
   void joinMatch(String matchId) {
     _socketClient.joinMatch(matchId);
   }
@@ -47,6 +57,16 @@ class ChatRepository {
     required bool isTyping,
   }) {
     _socketClient.setTyping(matchId: matchId, isTyping: isTyping);
+  }
+
+  Future<ChatMessage> sendMessageToConversation({
+    required String conversationId,
+    required String content,
+  }) {
+    return _apiClient.sendMessageToConversation(
+      conversationId: conversationId,
+      content: content,
+    );
   }
 }
 

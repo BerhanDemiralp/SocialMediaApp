@@ -7,6 +7,7 @@ import '../../../core/env/app_env.dart';
 
 class FriendConversationSummary {
   const FriendConversationSummary({
+    required this.friendId,
     required this.conversationId,
     this.matchId,
     required this.displayName,
@@ -15,6 +16,7 @@ class FriendConversationSummary {
     this.lastMessageAt,
   });
 
+  final String friendId;
   final String conversationId;
   final String? matchId;
   final String displayName;
@@ -28,6 +30,40 @@ class FriendConversationsApiClient {
 
   final http.Client _httpClient;
   final SupabaseClient _supabaseClient;
+
+  Future<FriendConversationSummary> ensureFriendConversation({
+    required String friendId,
+  }) async {
+    final session = _supabaseClient.auth.currentSession;
+    final token = session?.accessToken;
+    final currentUserId = session?.user.id;
+
+    if (token == null || currentUserId == null) {
+      throw StateError('No auth context available for conversations.');
+    }
+
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/conversations/friends');
+
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'friendId': friendId}),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw StateError(
+        'Failed to ensure friend conversation (status ${response.statusCode}).',
+      );
+    }
+
+    final Map<String, dynamic> map =
+        jsonDecode(response.body) as Map<String, dynamic>;
+
+    return _mapSummaryFromJson(map, currentUserId);
+  }
 
   Future<List<FriendConversationSummary>> listFriendConversations({
     int limit = 50,
@@ -62,39 +98,45 @@ class FriendConversationsApiClient {
         jsonDecode(response.body) as Map<String, dynamic>;
     final List<dynamic> items = body['items'] as List<dynamic>? ?? <dynamic>[];
 
-    return items.map((raw) {
-      final map = raw as Map<String, dynamic>;
+    return items
+        .map((raw) =>
+            _mapSummaryFromJson(raw as Map<String, dynamic>, currentUserId))
+        .toList();
+  }
 
-      final participants =
-          (map['participants'] as List<dynamic>? ?? <dynamic>[])
-              .cast<Map<String, dynamic>>();
+  FriendConversationSummary _mapSummaryFromJson(
+    Map<String, dynamic> map,
+    String currentUserId,
+  ) {
+    final participants =
+        (map['participants'] as List<dynamic>? ?? <dynamic>[])
+            .cast<Map<String, dynamic>>();
 
-      Map<String, dynamic>? other;
-      if (participants.isNotEmpty) {
-        other = participants.firstWhere(
-          (p) => p['id'] != currentUserId,
-          orElse: () => participants.first,
-        );
-      }
-
-      final lastMessage =
-          map['lastMessage'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
-      final createdAtRaw = lastMessage['created_at'] as String?;
-      final createdAt =
-          createdAtRaw != null ? DateTime.parse(createdAtRaw) : null;
-
-      return FriendConversationSummary(
-        conversationId: map['id'] as String,
-        matchId: map['friendMatchId'] as String?,
-        displayName: (other != null ? other['username'] : map['title'])
-                as String? ??
-            'Conversation',
-        avatarUrl: other != null ? other['avatar_url'] as String? : null,
-        lastMessagePreview: lastMessage['content'] as String?,
-        lastMessageAt: createdAt,
+    Map<String, dynamic>? other;
+    if (participants.isNotEmpty) {
+      other = participants.firstWhere(
+        (p) => p['id'] != currentUserId,
+        orElse: () => participants.first,
       );
-    }).toList();
+    }
+
+    final lastMessage =
+        map['lastMessage'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    final createdAtRaw = lastMessage['created_at'] as String?;
+    final createdAt =
+        createdAtRaw != null ? DateTime.parse(createdAtRaw) : null;
+
+    return FriendConversationSummary(
+      friendId: other != null ? other['id'] as String : currentUserId,
+      conversationId: map['id'] as String,
+      matchId: map['friendMatchId'] as String?,
+      displayName:
+          (other != null ? other['username'] : map['title']) as String? ??
+              'Conversation',
+      avatarUrl: other != null ? other['avatar_url'] as String? : null,
+      lastMessagePreview: lastMessage['content'] as String?,
+      lastMessageAt: createdAt,
+    );
   }
 }
-

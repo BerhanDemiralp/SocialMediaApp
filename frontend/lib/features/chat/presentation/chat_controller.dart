@@ -93,7 +93,54 @@ final chatControllerProvider = StateNotifierProvider.family<ChatController,
   return ChatController(repository, matchId);
 });
 
+class ConversationChatController extends StateNotifier<ChatState> {
+  ConversationChatController(this._repository, this._conversationId)
+      : super(ChatState.initial()) {
+    _init();
+  }
+
+  final ChatRepository _repository;
+  final String _conversationId;
+
+  Future<void> _init() async {
+    try {
+      final initialMessages = await _repository.loadMessagesForConversation(
+        conversationId: _conversationId,
+        limit: 50,
+      );
+      state = state.copyWith(messages: initialMessages, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Failed to load messages.',
+      );
+    }
+  }
+
+  Future<void> sendMessage(String content) async {
+    if (content.trim().isEmpty) return;
+
+    try {
+      final message = await _repository.sendMessageToConversation(
+        conversationId: _conversationId,
+        content: content.trim(),
+      );
+      state = state.copyWith(
+        messages: [...state.messages, message],
+      );
+    } catch (_) {
+      state = state.copyWith(error: 'Failed to send message.');
+    }
+  }
+}
+
+final conversationChatControllerProvider =
+    StateNotifierProvider.family<ConversationChatController, ChatState, String>(
+        (ref, conversationId) {
+  final repository = ref.watch(chatRepositoryProvider);
+  return ConversationChatController(repository, conversationId);
+});
+
 final currentUserIdProvider = Provider<String?>((ref) {
   return Supabase.instance.client.auth.currentUser?.id;
 });
-

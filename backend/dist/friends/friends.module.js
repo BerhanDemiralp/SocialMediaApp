@@ -13,12 +13,13 @@ const friends_service_1 = require("./friends.service");
 const friends_repository_1 = require("./friends.repository");
 const prisma_module_1 = require("../prisma/prisma.module");
 const auth_module_1 = require("../auth/auth.module");
+const conversations_module_1 = require("../conversations/conversations.module");
 let FriendsModule = class FriendsModule {
 };
 exports.FriendsModule = FriendsModule;
 exports.FriendsModule = FriendsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule],
+        imports: [prisma_module_1.PrismaModule, auth_module_1.AuthModule, conversations_module_1.ConversationsModule],
         controllers: [friends_controller_1.FriendsController],
         providers: [friends_service_1.FriendsService, friends_repository_1.FriendsRepository],
         exports: [friends_service_1.FriendsService],

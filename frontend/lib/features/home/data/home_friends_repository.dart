@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'friend_requests_api_client.dart';
+import 'friends_api_client.dart';
 import 'user_search_api_client.dart';
 
 final homeFriendsRepositoryProvider =
@@ -11,12 +12,14 @@ final homeFriendsRepositoryProvider =
   final httpClient = http.Client();
   final searchApi = UserSearchApiClient(httpClient, supabaseClient);
   final requestsApi = FriendRequestsApiClient(httpClient, supabaseClient);
+  final friendsApi = FriendsApiClient(httpClient, supabaseClient);
 
   ref.onDispose(httpClient.close);
 
   return HomeFriendsRepository(
     searchApiClient: searchApi,
     friendRequestsApiClient: requestsApi,
+    friendsApiClient: friendsApi,
   );
 });
 
@@ -24,11 +27,14 @@ class HomeFriendsRepository {
   HomeFriendsRepository({
     required UserSearchApiClient searchApiClient,
     required FriendRequestsApiClient friendRequestsApiClient,
+    required FriendsApiClient friendsApiClient,
   })  : _searchApiClient = searchApiClient,
-        _friendRequestsApiClient = friendRequestsApiClient;
+        _friendRequestsApiClient = friendRequestsApiClient,
+        _friendsApiClient = friendsApiClient;
 
   final UserSearchApiClient _searchApiClient;
   final FriendRequestsApiClient _friendRequestsApiClient;
+  final FriendsApiClient _friendsApiClient;
 
   Future<List<UserSummary>> searchUsers(String query) {
     return _searchApiClient.searchUsers(query: query);
@@ -57,5 +63,12 @@ class HomeFriendsRepository {
   Future<void> cancelRequest(String id) {
     return _friendRequestsApiClient.cancelRequest(id);
   }
-}
 
+  Future<List<FriendSummary>> loadFriends() {
+    return _friendsApiClient.listFriends();
+  }
+
+  Future<void> removeFriend(String friendId) {
+    return _friendsApiClient.removeFriend(friendId: friendId);
+  }
+}

@@ -60,11 +60,20 @@ let AuthService = class AuthService {
         if (!data.user) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const user = await this.prismaService.users.findUnique({
+        let user = await this.prismaService.users.findUnique({
             where: { id: data.user.id },
         });
         if (!user) {
-            throw new common_1.UnauthorizedException('User not found');
+            const fallbackUsername = data.user.user_metadata?.['username']?.toString() ??
+                data.user.email?.split('@')[0] ??
+                `user-${data.user.id.slice(0, 8)}`;
+            user = await this.prismaService.users.create({
+                data: {
+                    id: data.user.id,
+                    email: data.user.email ?? '',
+                    username: fallbackUsername,
+                },
+            });
         }
         return {
             user: {
@@ -88,7 +97,31 @@ let AuthService = class AuthService {
         if (error) {
             throw new common_1.UnauthorizedException(error.message);
         }
-        return data.user;
+        const supaUser = data.user;
+        if (!supaUser) {
+            throw new common_1.UnauthorizedException('User not found for token');
+        }
+        let user = await this.prismaService.users.findUnique({
+            where: { id: supaUser.id },
+        });
+        if (!user) {
+            const fallbackUsername = supaUser.user_metadata?.['username']?.toString() ??
+                supaUser.email?.split('@')[0] ??
+                `user-${supaUser.id.slice(0, 8)}`;
+            user = await this.prismaService.users.create({
+                data: {
+                    id: supaUser.id,
+                    email: supaUser.email ?? '',
+                    username: fallbackUsername,
+                },
+            });
+        }
+        return {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            avatar_url: user.avatar_url,
+        };
     }
 };
 exports.AuthService = AuthService;

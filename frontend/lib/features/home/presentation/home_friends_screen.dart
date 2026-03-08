@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/home_friends_repository.dart';
 import '../data/friend_requests_api_client.dart';
+import '../data/friends_api_client.dart';
 import '../data/user_search_api_client.dart';
+import '../data/home_messaging_repository.dart';
+import 'home_messages_screen.dart';
 import '../../../core/analytics/app_analytics.dart';
 
 final _searchQueryProvider = StateProvider<String>((ref) => '');
@@ -30,6 +34,12 @@ final outgoingRequestsProvider =
   return repo.loadOutgoingRequests();
 });
 
+final friendsProvider =
+    FutureProvider.autoDispose<List<FriendSummary>>((ref) {
+  final repo = ref.watch(homeFriendsRepositoryProvider);
+  return repo.loadFriends();
+});
+
 class HomeFriendsScreen extends ConsumerWidget {
   const HomeFriendsScreen({super.key});
 
@@ -39,11 +49,13 @@ class HomeFriendsScreen extends ConsumerWidget {
     final searchAsync = ref.watch(searchResultsProvider);
     final incomingAsync = ref.watch(incomingRequestsProvider);
     final outgoingAsync = ref.watch(outgoingRequestsProvider);
+    final friendsAsync = ref.watch(friendsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(incomingRequestsProvider);
         ref.invalidate(outgoingRequestsProvider);
+        ref.invalidate(friendsProvider);
         if (searchQuery.trim().isNotEmpty) {
           ref.invalidate(searchResultsProvider);
         }
@@ -78,53 +90,191 @@ class HomeFriendsScreen extends ConsumerWidget {
               if (results.isEmpty) {
                 return const Text('No users found for this query.');
               }
+
+              final hasRelationshipData = friendsAsync.hasValue &&
+                  incomingAsync.hasValue &&
+                  outgoingAsync.hasValue;
+
+              final friends = hasRelationshipData
+                  ? friendsAsync.requireValue
+                  : const <FriendSummary>[];
+              final incoming = hasRelationshipData
+                  ? incomingAsync.requireValue
+                  : const <FriendRequestItem>[];
+              final outgoing = hasRelationshipData
+                  ? outgoingAsync.requireValue
+                  : const <FriendRequestItem>[];
+
+              final friendIds = friends.map((f) => f.id).toSet();
+              final incomingUserIds =
+                  incoming.map((r) => r.userId).toSet();
+              final outgoingUserIds =
+                  outgoing.map((r) => r.userId).toSet();
+
               return Column(
                 children: results
                     .map(
-                      (u) => ListTile(
-                        leading: CircleAvatar(
-                          child: u.avatarUrl == null
-                              ? Text(u.username.isNotEmpty
-                                  ? u.username[0].toUpperCase()
-                                  : '?')
-                              : null,
-                        ),
-                        title: Text(u.username),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.person_add),
-                          onPressed: () async {
-                            final repo =
-                                ref.read(homeFriendsRepositoryProvider);
-                            final analytics = ref.read(appAnalyticsProvider);
-                            try {
-                              await repo.sendFriendRequest(u.id);
-                              analytics.trackEvent('friend_request_sent', {
-                                'target_user_id': u.id,
-                              });
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Friend request sent to ${u.username}',
+                      (u) {
+                        final isFriend = friendIds.contains(u.id);
+                        final hasOutgoingRequest =
+                            outgoingUserIds.contains(u.id);
+                        final hasIncomingRequest =
+                            incomingUserIds.contains(u.id);
+
+                        Widget trailing;
+
+                        if (!hasRelationshipData) {
+                          trailing = const SizedBox.shrink();
+                        } else if (isFriend) {
+                          trailing = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Friends',
+                                style: TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.person_remove),
+                                tooltip: 'Remove friend',
+                                onPressed: () async {
+                                  final repo = ref.read(
+                                      homeFriendsRepositoryProvider);
+                                  final analytics =
+                                      ref.read(appAnalyticsProvider);
+                                  try {
+                                    await repo.removeFriend(u.id);
+                                    analytics.trackEvent('friend_removed', {
+                                      'friend_id': u.id,
+                                    });
+                                    ref.invalidate(friendsProvider);
+                                    ref.invalidate(searchResultsProvider);
+                                    // Also refresh Messages tab after unfriend.
+                                    ref.invalidate(messagesFriendsProvider);
+                                    ref.invalidate(friendConversationsProvider);
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Could not remove friend.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          );
+                        } else if (hasOutgoingRequest) {
+                          trailing = const Text(
+                            'Requested',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          );
+                        } else if (hasIncomingRequest) {
+                          trailing = const Text(
+                            'Requested you',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          );
+                        } else {
+                          trailing = IconButton(
+                            icon: const Icon(Icons.person_add),
+                            onPressed: () async {
+                              final repo =
+                                  ref.read(homeFriendsRepositoryProvider);
+                              final analytics =
+                                  ref.read(appAnalyticsProvider);
+                              try {
+                                await repo.sendFriendRequest(u.id);
+                                analytics.trackEvent('friend_request_sent', {
+                                  'target_user_id': u.id,
+                                });
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Friend request sent to ${u.username}',
+                                      ),
                                     ),
-                                  ),
+                                  );
+                                }
+                                ref.invalidate(outgoingRequestsProvider);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not send friend request.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          );
+                        }
+
+                        return ListTile(
+                          leading: CircleAvatar(
+                            child: u.avatarUrl == null
+                                ? Text(
+                                    u.username.isNotEmpty
+                                        ? u.username[0].toUpperCase()
+                                        : '?',
+                                  )
+                                : null,
+                          ),
+                          title: Text(u.username),
+                          trailing: trailing,
+                          onTap: () async {
+                            // Only allow direct chat from search when the user is already a friend.
+                            if (!isFriend) return;
+
+                            final repo =
+                                ref.read(homeMessagingRepositoryProvider);
+                            final analytics =
+                                ref.read(appAnalyticsProvider);
+
+                            try {
+                              final ensured =
+                                  await repo.ensureFriendConversation(u.id);
+
+                              analytics.trackEvent(
+                                'friend_conversation_opened_from_search',
+                                {
+                                  'conversation_id': ensured.conversationId,
+                                },
+                              );
+
+                              // Refresh messages summaries so the chat list stays up to date.
+                              ref.invalidate(friendConversationsProvider);
+
+                              if (context.mounted) {
+                                // Navigate directly to the conversation chat.
+                                // Uses the same route as Messages tab.
+                                // Requires go_router setup in app_router.dart.
+                                // ignore: use_build_context_synchronously
+                                context.push(
+                                  '/conversation/${ensured.conversationId}',
                                 );
                               }
-                              ref.invalidate(outgoingRequestsProvider);
                             } catch (_) {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Could not send friend request.',
+                                      'Could not open conversation with user.',
                                     ),
                                   ),
                                 );
                               }
                             }
                           },
-                        ),
-                      ),
+                        );
+                      },
                     )
                     .toList(),
               );
@@ -176,6 +326,10 @@ class HomeFriendsScreen extends ConsumerWidget {
                                     {'request_id': r.id},
                                   );
                                   ref.invalidate(incomingRequestsProvider);
+                                  ref.invalidate(friendsProvider);
+                                  // Keep Messages tab in sync with new friendships.
+                                  ref.invalidate(messagesFriendsProvider);
+                                  ref.invalidate(friendConversationsProvider);
                                 } catch (_) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context)
@@ -197,12 +351,12 @@ class HomeFriendsScreen extends ConsumerWidget {
                                 final analytics =
                                     ref.read(appAnalyticsProvider);
                                 try {
-                                  await repo.rejectRequest(r.id);
-                                  analytics.trackEvent(
-                                    'friend_request_rejected',
-                                    {'request_id': r.id},
-                                  );
-                                  ref.invalidate(incomingRequestsProvider);
+                              await repo.rejectRequest(r.id);
+                              analytics.trackEvent(
+                                'friend_request_rejected',
+                                {'request_id': r.id},
+                              );
+                              ref.invalidate(incomingRequestsProvider);
                                 } catch (_) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context)

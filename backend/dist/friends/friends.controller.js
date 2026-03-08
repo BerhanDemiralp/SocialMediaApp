@@ -71,6 +71,13 @@ let FriendsController = class FriendsController {
         }
         return this.friendsService.listOutgoingRequests(userId);
     }
+    async removeFriend(req, friendId) {
+        const userId = req.user?.id;
+        if (!userId) {
+            throw new common_1.ForbiddenException('Authenticated user context is missing');
+        }
+        return this.friendsService.removeFriend(userId, friendId);
+    }
 };
 exports.FriendsController = FriendsController;
 __decorate([
@@ -126,6 +133,14 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], FriendsController.prototype, "listOutgoingRequests", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], FriendsController.prototype, "removeFriend", null);
 exports.FriendsController = FriendsController = __decorate([
     (0, common_1.Controller)('friends'),
     (0, common_1.UseGuards)(auth_guard_1.AuthGuard),

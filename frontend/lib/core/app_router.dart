@@ -41,6 +41,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      GoRoute(
+        path: '/conversation/:conversationId',
+        builder: (context, state) {
+          final conversationId = state.pathParameters['conversationId']!;
+          return ChatScreen(
+            conversationId: conversationId,
+          );
+        },
+      ),
     ],
   );
 });
