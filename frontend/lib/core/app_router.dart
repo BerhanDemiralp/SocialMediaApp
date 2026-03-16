@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'auth/auth_state.dart';
 import '../features/auth/presentation/auth_gate.dart';
+import '../features/auth/presentation/registration_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/chat/presentation/chat_screen.dart';
 
@@ -11,7 +12,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     redirect: (context, state) {
       final authState = ref.read(appAuthStateProvider);
-      final loggingIn = state.matchedLocation == '/auth';
+      final loggingIn = state.matchedLocation.startsWith('/auth');
 
       if (!authState.isAuthenticated && !loggingIn) {
         return '/auth';
@@ -37,6 +38,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             conversationId: conversationId,
           );
         },
+      ),
+      GoRoute(
+        path: '/auth/register',
+        builder: (context, state) => const RegistrationScreen(),
       ),
     ],
   );

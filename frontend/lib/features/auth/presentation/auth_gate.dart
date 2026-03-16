@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
 import '../data/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(Supabase.instance.client);
+  final supabaseClient = Supabase.instance.client;
+  final httpClient = http.Client();
+
+  ref.onDispose(httpClient.close);
+
+  return AuthRepository(supabaseClient, httpClient);
 });
 
 class AuthGateScreen extends ConsumerStatefulWidget {
@@ -31,10 +38,14 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
   }
 
   Future<void> _signIn() async {
+    final analytics = ref.read(appAnalyticsProvider);
+
     setState(() {
       _isLoading = true;
       _error = null;
     });
+
+    analytics.trackEvent('login_submitted', {});
 
     try {
       final repo = ref.read(authRepositoryProvider);
@@ -44,17 +55,20 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
       );
 
       if (response.session != null) {
+        analytics.trackEvent('login_succeeded', {});
         ref.read(appAuthStateProvider.notifier).state =
             const AppAuthState.authenticated();
         if (mounted) {
           context.go('/');
         }
       } else {
+        analytics.trackEvent('login_failed', {'type': 'validation'});
         setState(() {
           _error = 'Sign in failed. Please check your credentials.';
         });
       }
     } catch (e) {
+      analytics.trackEvent('login_failed', {'type': 'network'});
       setState(() {
         _error = 'Sign in failed. Please try again.';
       });
@@ -68,38 +82,8 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
   }
 
   Future<void> _signUp() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final repo = ref.read(authRepositoryProvider);
-      final response = await repo.signUpWithEmail(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-
-      if (response.user != null) {
-        setState(() {
-          _error = 'Check your email to confirm your account.';
-        });
-      } else {
-        setState(() {
-          _error = 'Sign up failed. Please try again.';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _error = 'Sign up failed. Please try again.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    if (!mounted) return;
+    context.go('/auth/register');
   }
 
   Future<void> _sendResetEmail() async {
