@@ -8,7 +8,7 @@ export declare class ConversationsService {
             id: string;
             type: import("@prisma/client").$Enums.ConversationType;
             title: string | null;
-            friendMatchId: string | null;
+            friendMatchId: null;
             participants: {
                 id: string;
                 username: string;
@@ -25,16 +25,15 @@ export declare class ConversationsService {
     createMessageForConversation(conversationId: string, userId: string, content: string): Promise<{
         id: string;
         created_at: Date;
-        conversation_id: string | null;
-        match_id: string;
-        sender_id: string;
         content: string;
+        conversation_id: string;
+        sender_id: string;
     }>;
     ensureFriendConversationBetweenUsers(userId: string, friendId: string): Promise<{
         id: string;
         type: import("@prisma/client").$Enums.ConversationType;
         title: string | null;
-        friendMatchId: string | null;
+        friendMatchId: null;
         participants: {
             id: string;
             username: string;
@@ -50,10 +49,9 @@ export declare class ConversationsService {
         items: {
             id: string;
             created_at: Date;
-            conversation_id: string | null;
-            match_id: string;
-            sender_id: string;
             content: string;
+            conversation_id: string;
+            sender_id: string;
         }[];
         nextCursor: string | null;
     }>;

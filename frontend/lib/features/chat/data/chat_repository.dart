@@ -20,13 +20,6 @@ class ChatRepository {
 
   Stream<ChatMessage> get messageStream => _socketClient.messageStream;
 
-  Future<List<ChatMessage>> loadMessages({
-    required String matchId,
-    int limit = 50,
-  }) {
-    return _apiClient.getMessages(matchId: matchId, limit: limit);
-  }
-
   Future<List<ChatMessage>> loadMessagesForConversation({
     required String conversationId,
     int limit = 50,
@@ -37,26 +30,29 @@ class ChatRepository {
     );
   }
 
-  void joinMatch(String matchId) {
-    _socketClient.joinMatch(matchId);
+  void joinConversation(String conversationId) {
+    _socketClient.joinConversation(conversationId);
   }
 
-  void leaveMatch(String matchId) {
-    _socketClient.leaveMatch(matchId);
+  void leaveConversation(String conversationId) {
+    _socketClient.leaveConversation(conversationId);
   }
 
   void sendMessage({
-    required String matchId,
+    required String conversationId,
     required String content,
   }) {
-    _socketClient.sendMessage(matchId: matchId, content: content);
+    _socketClient.sendMessage(
+      conversationId: conversationId,
+      content: content,
+    );
   }
 
   void setTyping({
-    required String matchId,
+    required String conversationId,
     required bool isTyping,
   }) {
-    _socketClient.setTyping(matchId: matchId, isTyping: isTyping);
+    _socketClient.setTyping(conversationId: conversationId, isTyping: isTyping);
   }
 
   Future<ChatMessage> sendMessageToConversation({

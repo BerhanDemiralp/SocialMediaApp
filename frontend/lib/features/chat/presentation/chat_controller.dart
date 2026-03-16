@@ -33,65 +33,8 @@ class ChatState {
       const ChatState(messages: [], isLoading: true, error: null);
 }
 
-class ChatController extends StateNotifier<ChatState> {
-  ChatController(this._repository, this._matchId) : super(ChatState.initial()) {
-    _init();
-  }
-
-  final ChatRepository _repository;
-  final String _matchId;
-
-  StreamSubscription<ChatMessage>? _subscription;
-
-  Future<void> _init() async {
-    try {
-      _repository.joinMatch(_matchId);
-      final initialMessages =
-          await _repository.loadMessages(matchId: _matchId, limit: 50);
-      state = state.copyWith(messages: initialMessages, isLoading: false);
-
-      _subscription = _repository.messageStream.listen((message) {
-        if (message.matchId == _matchId) {
-          state = state.copyWith(
-            messages: [...state.messages, message],
-          );
-        }
-      });
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Failed to load messages.',
-      );
-    }
-  }
-
-  Future<void> sendMessage(String content) async {
-    if (content.trim().isEmpty) return;
-
-    try {
-      _repository.sendMessage(matchId: _matchId, content: content.trim());
-    } catch (_) {
-      state = state.copyWith(error: 'Failed to send message.');
-    }
-  }
-
-  void setTyping(bool isTyping) {
-    _repository.setTyping(matchId: _matchId, isTyping: isTyping);
-  }
-
-  @override
-  void dispose() {
-    _repository.leaveMatch(_matchId);
-    _subscription?.cancel();
-    super.dispose();
-  }
-}
-
-final chatControllerProvider = StateNotifierProvider.family<ChatController,
-    ChatState, String>((ref, matchId) {
-  final repository = ref.watch(chatRepositoryProvider);
-  return ChatController(repository, matchId);
-});
+// Legacy match-based ChatController has been removed in favor of
+// conversation-based chat via ConversationChatController.
 
 class ConversationChatController extends StateNotifier<ChatState> {
   ConversationChatController(this._repository, this._conversationId)
@@ -101,14 +44,24 @@ class ConversationChatController extends StateNotifier<ChatState> {
 
   final ChatRepository _repository;
   final String _conversationId;
+  StreamSubscription<ChatMessage>? _subscription;
 
   Future<void> _init() async {
     try {
+      _repository.joinConversation(_conversationId);
       final initialMessages = await _repository.loadMessagesForConversation(
         conversationId: _conversationId,
         limit: 50,
       );
       state = state.copyWith(messages: initialMessages, isLoading: false);
+
+      _subscription = _repository.messageStream.listen((message) {
+        if (message.conversationId == _conversationId) {
+          state = state.copyWith(
+            messages: [...state.messages, message],
+          );
+        }
+      });
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -131,6 +84,13 @@ class ConversationChatController extends StateNotifier<ChatState> {
     } catch (_) {
       state = state.copyWith(error: 'Failed to send message.');
     }
+  }
+
+  @override
+  void dispose() {
+    _repository.leaveConversation(_conversationId);
+    _subscription?.cancel();
+    super.dispose();
   }
 }
 

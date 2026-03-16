@@ -12,6 +12,10 @@ import '../../../core/analytics/app_analytics.dart';
 
 final _searchQueryProvider = StateProvider<String>((ref) => '');
 
+/// Tracks which user id is currently opening a chat from search
+/// so multiple rapid taps don't push multiple chat routes.
+final _openingChatForUserIdProvider = StateProvider<String?>((ref) => null);
+
 final searchResultsProvider =
     FutureProvider.autoDispose<List<UserSummary>>((ref) async {
   final query = ref.watch(_searchQueryProvider);
@@ -233,6 +237,15 @@ class HomeFriendsScreen extends ConsumerWidget {
                             // Only allow direct chat from search when the user is already a friend.
                             if (!isFriend) return;
 
+                            final openingUserId =
+                                ref.read(_openingChatForUserIdProvider);
+                            // If we're already opening a chat for this user, ignore extra taps.
+                            if (openingUserId == u.id) return;
+
+                            final openingNotifier =
+                                ref.read(_openingChatForUserIdProvider.notifier);
+                            openingNotifier.state = u.id;
+
                             final repo =
                                 ref.read(homeMessagingRepositoryProvider);
                             final analytics =
@@ -253,10 +266,6 @@ class HomeFriendsScreen extends ConsumerWidget {
                               ref.invalidate(friendConversationsProvider);
 
                               if (context.mounted) {
-                                // Navigate directly to the conversation chat.
-                                // Uses the same route as Messages tab.
-                                // Requires go_router setup in app_router.dart.
-                                // ignore: use_build_context_synchronously
                                 context.push(
                                   '/conversation/${ensured.conversationId}',
                                 );
@@ -271,6 +280,8 @@ class HomeFriendsScreen extends ConsumerWidget {
                                   ),
                                 );
                               }
+                            } finally {
+                              openingNotifier.state = null;
                             }
                           },
                         );

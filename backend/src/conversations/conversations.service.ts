@@ -118,17 +118,8 @@ export class ConversationsService {
       }
     }
 
-    const matchId = conversation.friend_match_id ?? conversation.group_match_id;
-
-    if (!matchId) {
-      throw new BadRequestException(
-        'Conversation is not linked to a match; cannot send messages.',
-      );
-    }
-
     const message = await this.prisma.messages.create({
       data: {
-        match_id: matchId,
         conversation_id: conversation.id,
         sender_id: userId,
         content: content.trim(),
@@ -189,34 +180,11 @@ export class ConversationsService {
         data: {
           type: ConversationType.friend,
           title: null,
-          friend_match_id: null,
-          group_match_id: null,
           participants: {
             create: participantsCreate,
           },
         },
       });
-    }
-
-    // Ensure there is a match associated with this friend conversation
-    if (!conversation.friend_match_id) {
-      const match = await this.prisma.matches.create({
-        data: {
-          user_a_id: userId,
-          user_b_id: friendId,
-          match_type: 'friends',
-          status: 'active',
-          scheduled_at: new Date(),
-          expires_at: new Date(Date.now() + 60 * 60 * 1000),
-        },
-      });
-
-      await this.prisma.conversations.update({
-        where: { id: conversation.id },
-        data: { friend_match_id: match.id },
-      });
-
-      conversation.friend_match_id = match.id;
     }
 
     const conversationWithRelations =
@@ -292,7 +260,6 @@ export class ConversationsService {
     id: string;
     type: ConversationType;
     title: string | null;
-    friend_match_id: string | null;
     participants: {
       user: { id: string; username: string; avatar_url: string | null };
     }[];
@@ -310,7 +277,7 @@ export class ConversationsService {
       id: conversation.id,
       type: conversation.type,
       title: conversation.title,
-      friendMatchId: conversation.friend_match_id,
+      friendMatchId: null,
       participants,
       lastMessage: lastMessage
         ? {

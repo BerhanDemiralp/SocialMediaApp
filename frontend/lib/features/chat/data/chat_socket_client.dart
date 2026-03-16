@@ -45,30 +45,30 @@ class ChatSocketClient {
     });
   }
 
-  void joinMatch(String matchId) {
-    _socket.emit('joinMatch', {'matchId': matchId});
+  void joinConversation(String conversationId) {
+    _socket.emit('joinConversation', {'conversationId': conversationId});
   }
 
-  void leaveMatch(String matchId) {
-    _socket.emit('leaveMatch', {'matchId': matchId});
+  void leaveConversation(String conversationId) {
+    _socket.emit('leaveConversation', {'conversationId': conversationId});
   }
 
   void sendMessage({
-    required String matchId,
+    required String conversationId,
     required String content,
   }) {
-    _socket.emit('sendMessage', {
-      'matchId': matchId,
+    _socket.emit('sendConversationMessage', {
+      'conversationId': conversationId,
       'content': content,
     });
   }
 
   void setTyping({
-    required String matchId,
+    required String conversationId,
     required bool isTyping,
   }) {
-    _socket.emit('typing', {
-      'matchId': matchId,
+    _socket.emit('typingConversation', {
+      'conversationId': conversationId,
       'isTyping': isTyping,
     });
   }
@@ -78,4 +78,3 @@ class ChatSocketClient {
     _socket.dispose();
   }
 }
-

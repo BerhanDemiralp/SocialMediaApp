@@ -8,13 +8,11 @@ import '../../home/presentation/home_messages_screen.dart';
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
     super.key,
-    this.matchId,
     this.conversationId,
     this.isTemporary = false,
-  }) : assert(matchId != null || conversationId != null,
-            'Either matchId or conversationId must be provided');
+  }) : assert(conversationId != null,
+            'conversationId must be provided');
 
-  final String? matchId;
   final String? conversationId;
   final bool isTemporary;
 
@@ -33,11 +31,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatState = widget.matchId != null
-        ? ref.watch(chatControllerProvider(widget.matchId!))
-        : ref.watch(
-            conversationChatControllerProvider(widget.conversationId!),
-          );
+    final chatState = ref.watch(
+      conversationChatControllerProvider(widget.conversationId!),
+    );
     final currentUserId = ref.watch(currentUserIdProvider);
 
     return Scaffold(
@@ -107,13 +103,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 controller: _controller,
                 minLines: 1,
                 maxLines: 4,
-                onChanged: (value) {
-                  final matchId = widget.matchId;
-                  if (matchId != null) {
-                    ref
-                        .read(chatControllerProvider(matchId).notifier)
-                        .setTyping(value.isNotEmpty);
-                  }
+                onChanged: (_) {
+                  // Typing indicators are not wired for conversation-only chat yet.
                 },
                 decoration: const InputDecoration(
                   hintText: 'Message...',
@@ -130,13 +121,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   : () {
                       final text = _controller.text;
                       _controller.clear();
-                      if (widget.matchId != null) {
+                      if (widget.conversationId != null) {
                         ref
-                            .read(chatControllerProvider(widget.matchId!).notifier)
-                            .sendMessage(text);
-                      } else if (widget.conversationId != null) {
-                        ref
-                            .read(conversationChatControllerProvider(widget.conversationId!).notifier)
+                            .read(
+                              conversationChatControllerProvider(
+                                widget.conversationId!,
+                              ).notifier,
+                            )
                             .sendMessage(text);
                         // Refresh conversations summaries so Messages tab shows the latest message.
                         ref.invalidate(friendConversationsProvider);

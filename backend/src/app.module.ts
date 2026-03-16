@@ -6,11 +6,9 @@ import { SupabaseModule } from './supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { EventsModule } from './events/events.module';
-import { MatchesModule } from './matches/matches.module';
 import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
-import { MatchingEngineModule } from './matching-engine/matching-engine.module';
 import { ConversationsModule } from './conversations/conversations.module';
 
 @Module({
@@ -20,11 +18,9 @@ import { ConversationsModule } from './conversations/conversations.module';
     AuthModule,
     UsersModule,
     EventsModule,
-    MatchesModule,
     FriendsModule,
     GroupsModule,
     DailyQuestionsModule,
-    MatchingEngineModule,
     ConversationsModule,
   ],
   controllers: [AppController],

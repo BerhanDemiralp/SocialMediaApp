@@ -12,21 +12,19 @@ enum ConversationType {
 }
 
 model users {
-  id            String        @id @default(uuid())
-  username      String        @unique
-  email         String        @unique
-  avatar_url    String?
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @updatedAt
+  id         String   @id @default(uuid())
+  username   String   @unique
+  email      String   @unique
+  avatar_url String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  friendships_as_requester friendships[] @relation("FriendshipRequester")
-  friendships_as_addressee friendships[] @relation("FriendshipAddressee")
-  group_memberships       group_members[]
-  messages                messages[]
-  matches_as_user_a       matches[] @relation("MatchUserA")
-  matches_as_user_b       matches[] @relation("MatchUserB")
-  user_answers            user_answers[]
-  games                   games[]
+  friendships_as_requester  friendships[]               @relation("FriendshipRequester")
+  friendships_as_addressee  friendships[]               @relation("FriendshipAddressee")
+  group_memberships         group_members[]
+  messages                  messages[]
+  user_answers              user_answers[]
+  games                     games[]
   conversation_participants conversation_participants[]
 }
 
@@ -68,35 +66,14 @@ model group_members {
 }
 
 model messages {
-  id             String   @id @default(uuid())
-  match_id       String
-  conversation_id String?
-  sender_id      String
-  content        String
-  created_at     DateTime @default(now())
+  id              String   @id @default(uuid())
+  conversation_id String
+  sender_id       String
+  content         String
+  created_at      DateTime @default(now())
 
-  match        matches       @relation(fields: [match_id], references: [id])
-  conversation conversations? @relation(fields: [conversation_id], references: [id])
+  conversation conversations @relation(fields: [conversation_id], references: [id])
   sender       users         @relation(fields: [sender_id], references: [id])
-}
-
-model matches {
-  id          String   @id @default(uuid())
-  user_a_id   String
-  user_b_id   String
-  match_type  String   // friends, groups
-  status      String   @default("active") // active, expired, successful
-  scheduled_at DateTime @default(now())
-  expires_at  DateTime
-  user_a_opt_in Boolean @default(false)
-  user_b_opt_in Boolean @default(false)
-
-  user_a users @relation("MatchUserA", fields: [user_a_id], references: [id])
-  user_b users @relation("MatchUserB", fields: [user_b_id], references: [id])
-  messages messages[]
-
-  friend_conversations conversations[] @relation("FriendConversationMatch")
-  group_conversations  conversations[] @relation("GroupConversationMatch")
 }
 
 model daily_questions {
@@ -115,47 +92,42 @@ model user_answers {
   answer_text String
   created_at  DateTime @default(now())
 
-  user     users          @relation(fields: [user_id], references: [id])
+  user     users           @relation(fields: [user_id], references: [id])
   question daily_questions @relation(fields: [question_id], references: [id])
 
   @@unique([question_id, user_id])
 }
 
 model games {
-  id         String   @id @default(uuid())
-  user_id    String
-  game_type  String   // this-or-that, would-you-rather, personality-quiz
+  id          String   @id @default(uuid())
+  user_id     String
+  game_type   String // this-or-that, would-you-rather, personality-quiz
   result_data Json
-  created_at DateTime @default(now())
+  created_at  DateTime @default(now())
 
   user users @relation(fields: [user_id], references: [id])
 }
 
 model conversations {
-  id             String           @id @default(uuid())
-  type           ConversationType
-  title          String?
-  friend_match_id String?
-  group_match_id  String?
-  created_at     DateTime         @default(now())
-  updated_at     DateTime         @updatedAt
+  id         String           @id @default(uuid())
+  type       ConversationType
+  title      String?
+  created_at DateTime         @default(now())
+  updated_at DateTime         @updatedAt
 
-  participants   conversation_participants[]
-  messages       messages[]
-
-  friend_match   matches?         @relation("FriendConversationMatch", fields: [friend_match_id], references: [id])
-  group_match    matches?         @relation("GroupConversationMatch", fields: [group_match_id], references: [id])
+  participants conversation_participants[]
+  messages     messages[]
 }
 
 model conversation_participants {
-  id             String   @id @default(uuid())
+  id              String   @id @default(uuid())
   conversation_id String
-  user_id        String
-  is_muted       Boolean  @default(false)
-  joined_at      DateTime @default(now())
+  user_id         String
+  is_muted        Boolean  @default(false)
+  joined_at       DateTime @default(now())
 
-  conversation   conversations @relation(fields: [conversation_id], references: [id])
-  user           users         @relation(fields: [user_id], references: [id])
+  conversation conversations @relation(fields: [conversation_id], references: [id])
+  user         users         @relation(fields: [user_id], references: [id])
 
   @@unique([conversation_id, user_id])
 }

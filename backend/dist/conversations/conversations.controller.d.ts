@@ -15,7 +15,7 @@ export declare class ConversationsController {
             id: string;
             type: import("@prisma/client").$Enums.ConversationType;
             title: string | null;
-            friendMatchId: string | null;
+            friendMatchId: null;
             participants: {
                 id: string;
                 username: string;
@@ -37,10 +37,9 @@ export declare class ConversationsController {
         items: {
             id: string;
             created_at: Date;
-            conversation_id: string | null;
-            match_id: string;
-            sender_id: string;
             content: string;
+            conversation_id: string;
+            sender_id: string;
         }[];
         nextCursor: string | null;
     }>;
@@ -53,10 +52,9 @@ export declare class ConversationsController {
     }): Promise<{
         id: string;
         created_at: Date;
-        conversation_id: string | null;
-        match_id: string;
-        sender_id: string;
         content: string;
+        conversation_id: string;
+        sender_id: string;
     }>;
     createOrReuseFriendConversation(req: ExpressRequest & {
         user?: {
@@ -66,7 +64,7 @@ export declare class ConversationsController {
         id: string;
         type: import("@prisma/client").$Enums.ConversationType;
         title: string | null;
-        friendMatchId: string | null;
+        friendMatchId: null;
         participants: {
             id: string;
             username: string;

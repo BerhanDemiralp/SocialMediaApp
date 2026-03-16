@@ -30,18 +30,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/', builder: (context, state) => const HomeShellScreen()),
       GoRoute(
-        path: '/chat/:matchId',
-        builder: (context, state) {
-          final matchId = state.pathParameters['matchId']!;
-          final isTemporary =
-              state.uri.queryParameters['temporary'] == 'true';
-          return ChatScreen(
-            matchId: matchId,
-            isTemporary: isTemporary,
-          );
-        },
-      ),
-      GoRoute(
         path: '/conversation/:conversationId',
         builder: (context, state) {
           final conversationId = state.pathParameters['conversationId']!;

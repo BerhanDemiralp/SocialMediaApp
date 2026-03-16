@@ -12,9 +12,9 @@ export declare class FriendsController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     acceptRequest(req: ExpressRequest & {
         user?: {
@@ -24,9 +24,9 @@ export declare class FriendsController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     rejectRequest(req: ExpressRequest & {
         user?: {
@@ -36,9 +36,9 @@ export declare class FriendsController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     cancelRequest(req: ExpressRequest & {
         user?: {
@@ -48,9 +48,9 @@ export declare class FriendsController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     listFriends(req: ExpressRequest & {
         user?: {
@@ -97,8 +97,8 @@ export declare class FriendsController {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
 }

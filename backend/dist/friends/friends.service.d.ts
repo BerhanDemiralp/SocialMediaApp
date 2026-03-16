@@ -8,33 +8,33 @@ export declare class FriendsService {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     acceptRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     rejectRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     cancelRequest(userId: string, requestId: string): Promise<{
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
     listFriends(userId: string): Promise<{
         id: string;
@@ -65,8 +65,8 @@ export declare class FriendsService {
         id: string;
         created_at: Date;
         updated_at: Date;
-        requester_id: string;
-        addressee_id: string;
         status: string;
+        addressee_id: string;
+        requester_id: string;
     }>;
 }
