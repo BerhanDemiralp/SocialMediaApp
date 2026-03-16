@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'home_friends_screen.dart';
+import 'home_main_screen.dart';
 import 'home_messages_screen.dart';
 import 'profile_screen.dart';
 
@@ -21,7 +21,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: const [
-          HomeFriendsScreen(),
+          HomeMainScreen(),
           HomeMessagesScreen(),
           ProfileScreen(),
         ],

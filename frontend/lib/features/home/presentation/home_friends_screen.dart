@@ -49,50 +49,71 @@ class HomeFriendsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final searchQuery = ref.watch(_searchQueryProvider);
     final searchAsync = ref.watch(searchResultsProvider);
     final incomingAsync = ref.watch(incomingRequestsProvider);
     final outgoingAsync = ref.watch(outgoingRequestsProvider);
     final friendsAsync = ref.watch(friendsProvider);
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(incomingRequestsProvider);
-        ref.invalidate(outgoingRequestsProvider);
-        ref.invalidate(friendsProvider);
-        if (searchQuery.trim().isNotEmpty) {
-          ref.invalidate(searchResultsProvider);
-        }
-      },
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            decoration: const InputDecoration(
-              labelText: 'Search by username',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (value) {
-              ref.read(_searchQueryProvider.notifier).state = value;
-              final analytics = ref.read(appAnalyticsProvider);
-              analytics.trackEvent('home_search_changed', {
-                'query_length': value.length,
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Search results',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          searchAsync.when(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Find friends'),
+        centerTitle: false,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(incomingRequestsProvider);
+          ref.invalidate(outgoingRequestsProvider);
+          ref.invalidate(friendsProvider);
+          if (searchQuery.trim().isNotEmpty) {
+            ref.invalidate(searchResultsProvider);
+          }
+        },
+        child: Material(
+          color: Colors.transparent,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text(
+                'Search by username',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Type a friend\'s username',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) {
+                  ref.read(_searchQueryProvider.notifier).state = value;
+                  final analytics = ref.read(appAnalyticsProvider);
+                  analytics.trackEvent('home_search_changed', {
+                    'query_length': value.length,
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Search results',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      searchAsync.when(
             data: (results) {
               if (searchQuery.trim().isEmpty) {
-                return const Text('Start typing to search for friends.');
+                return const Text(
+                  'Start typing to search for new friends.',
+                );
               }
               if (results.isEmpty) {
-                return const Text('No users found for this query.');
+                return const Text('No users found for this username.');
               }
 
               final hasRelationshipData = friendsAsync.hasValue &&
@@ -296,6 +317,10 @@ class HomeFriendsScreen extends ConsumerWidget {
             ),
             error: (_, __) => const Text('Error loading search results.'),
           ),
+                    ],
+                  ),
+                ),
+              ),
           const SizedBox(height: 24),
           Text(
             'Incoming requests',
@@ -395,12 +420,18 @@ class HomeFriendsScreen extends ConsumerWidget {
             error: (_, __) => const Text('Error loading incoming requests.'),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Outgoing requests',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          outgoingAsync.when(
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Outgoing requests',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  outgoingAsync.when(
             data: (items) {
               if (items.isEmpty) {
                 return const Text('No outgoing requests.');
@@ -454,8 +485,14 @@ class HomeFriendsScreen extends ConsumerWidget {
               child: LinearProgressIndicator(),
             ),
             error: (_, __) => const Text('Error loading outgoing requests.'),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
