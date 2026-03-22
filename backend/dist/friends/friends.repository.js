@@ -33,10 +33,19 @@ let FriendsRepository = class FriendsRepository {
         });
     }
     async createFriendRequest(requesterId, addresseeId) {
-        return this.prisma.friendships.create({
-            data: {
+        return this.prisma.friendships.upsert({
+            where: {
+                requester_id_addressee_id: {
+                    requester_id: requesterId,
+                    addressee_id: addresseeId,
+                },
+            },
+            create: {
                 requester_id: requesterId,
                 addressee_id: addresseeId,
+                status: 'pending',
+            },
+            update: {
                 status: 'pending',
             },
         });
