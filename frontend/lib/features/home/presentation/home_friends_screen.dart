@@ -11,15 +11,15 @@ import '../data/home_messaging_repository.dart';
 import 'home_messages_screen.dart';
 import 'user_action_tile.dart';
 
-final _searchQueryProvider =
-    StateProvider.autoDispose<String>((ref) => '');
+final _searchQueryProvider = StateProvider.autoDispose<String>((ref) => '');
 
 /// Tracks which user id is currently opening a chat from search
 /// so multiple rapid taps don't push multiple chat routes.
 final _openingChatForUserIdProvider = StateProvider<String?>((ref) => null);
 
-final searchResultsProvider =
-    FutureProvider.autoDispose<List<UserSummary>>((ref) async {
+final searchResultsProvider = FutureProvider.autoDispose<List<UserSummary>>((
+  ref,
+) async {
   final query = ref.watch(_searchQueryProvider);
   if (query.trim().isEmpty) {
     return [];
@@ -30,18 +30,17 @@ final searchResultsProvider =
 
 final incomingRequestsProvider =
     FutureProvider.autoDispose<List<FriendRequestItem>>((ref) {
-  final repo = ref.watch(homeFriendsRepositoryProvider);
-  return repo.loadIncomingRequests();
-});
+      final repo = ref.watch(homeFriendsRepositoryProvider);
+      return repo.loadIncomingRequests();
+    });
 
 final outgoingRequestsProvider =
     FutureProvider.autoDispose<List<FriendRequestItem>>((ref) {
-  final repo = ref.watch(homeFriendsRepositoryProvider);
-  return repo.loadOutgoingRequests();
-});
+      final repo = ref.watch(homeFriendsRepositoryProvider);
+      return repo.loadOutgoingRequests();
+    });
 
-final friendsProvider =
-    FutureProvider.autoDispose<List<FriendSummary>>((ref) {
+final friendsProvider = FutureProvider.autoDispose<List<FriendSummary>>((ref) {
   final repo = ref.watch(homeFriendsRepositoryProvider);
   return repo.loadFriends();
 });
@@ -59,10 +58,7 @@ class HomeFriendsScreen extends ConsumerWidget {
     final friendsAsync = ref.watch(friendsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Find friends'),
-        centerTitle: false,
-      ),
+      appBar: AppBar(title: const Text('Find friends'), centerTitle: false),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(incomingRequestsProvider);
@@ -107,8 +103,8 @@ class HomeFriendsScreen extends ConsumerWidget {
 
                         final hasRelationshipData =
                             friendsAsync.hasValue &&
-                                incomingAsync.hasValue &&
-                                outgoingAsync.hasValue;
+                            incomingAsync.hasValue &&
+                            outgoingAsync.hasValue;
 
                         final friends = hasRelationshipData
                             ? friendsAsync.requireValue
@@ -121,20 +117,24 @@ class HomeFriendsScreen extends ConsumerWidget {
                             : const <FriendRequestItem>[];
 
                         final friendIds = friends.map((f) => f.id).toSet();
-                        final incomingUserIds =
-                            incoming.map((r) => r.userId).toSet();
-                        final outgoingUserIds =
-                            outgoing.map((r) => r.userId).toSet();
+                        final incomingUserIds = incoming
+                            .map((r) => r.userId)
+                            .toSet();
+                        final outgoingUserIds = outgoing
+                            .map((r) => r.userId)
+                            .toSet();
 
                         // Sort search results by action/button state:
                         // 0 = can add friend, 1 = can remove friend,
                         // 2 = pending (requested / requested you), 3 = unknown.
                         int sortKey(UserSummary u) {
                           final isFriend = friendIds.contains(u.id);
-                          final hasOutgoingRequest =
-                              outgoingUserIds.contains(u.id);
-                          final hasIncomingRequest =
-                              incomingUserIds.contains(u.id);
+                          final hasOutgoingRequest = outgoingUserIds.contains(
+                            u.id,
+                          );
+                          final hasIncomingRequest = incomingUserIds.contains(
+                            u.id,
+                          );
                           if (!hasRelationshipData) return 3;
                           if (!isFriend &&
                               !hasOutgoingRequest &&
@@ -159,10 +159,12 @@ class HomeFriendsScreen extends ConsumerWidget {
                         return Column(
                           children: sorted.map((u) {
                             final isFriend = friendIds.contains(u.id);
-                            final hasOutgoingRequest =
-                                outgoingUserIds.contains(u.id);
-                            final hasIncomingRequest =
-                                incomingUserIds.contains(u.id);
+                            final hasOutgoingRequest = outgoingUserIds.contains(
+                              u.id,
+                            );
+                            final hasIncomingRequest = incomingUserIds.contains(
+                              u.id,
+                            );
 
                             return UserActionTile(
                               userId: u.id,
@@ -174,16 +176,17 @@ class HomeFriendsScreen extends ConsumerWidget {
                               hasOutgoingRequest: hasOutgoingRequest,
                               onAddFriend: () async {
                                 if (!hasRelationshipData) return;
-                                final repo =
-                                    ref.read(homeFriendsRepositoryProvider);
-                                final analytics =
-                                    ref.read(appAnalyticsProvider);
+                                final repo = ref.read(
+                                  homeFriendsRepositoryProvider,
+                                );
+                                final analytics = ref.read(
+                                  appAnalyticsProvider,
+                                );
                                 try {
                                   await repo.sendFriendRequest(u.id);
-                                  analytics.trackEvent(
-                                    'friend_request_sent',
-                                    {'target_user_id': u.id},
-                                  );
+                                  analytics.trackEvent('friend_request_sent', {
+                                    'target_user_id': u.id,
+                                  });
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -212,26 +215,25 @@ class HomeFriendsScreen extends ConsumerWidget {
                                       final repo = ref.read(
                                         homeFriendsRepositoryProvider,
                                       );
-                                      final analytics =
-                                          ref.read(appAnalyticsProvider);
+                                      final analytics = ref.read(
+                                        appAnalyticsProvider,
+                                      );
                                       try {
                                         await repo.removeFriend(u.id);
-                                        analytics.trackEvent(
-                                          'friend_removed',
-                                          {'friend_id': u.id},
-                                        );
+                                        analytics.trackEvent('friend_removed', {
+                                          'friend_id': u.id,
+                                        });
                                         ref.invalidate(friendsProvider);
                                         ref.invalidate(searchResultsProvider);
-                                        ref.invalidate(
-                                          messagesFriendsProvider,
-                                        );
+                                        ref.invalidate(messagesFriendsProvider);
                                         ref.invalidate(
                                           friendConversationsProvider,
                                         );
                                       } catch (_) {
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                 'Could not remove friend.',
@@ -258,14 +260,13 @@ class HomeFriendsScreen extends ConsumerWidget {
                                       final repo = ref.read(
                                         homeMessagingRepositoryProvider,
                                       );
-                                      final analytics =
-                                          ref.read(appAnalyticsProvider);
+                                      final analytics = ref.read(
+                                        appAnalyticsProvider,
+                                      );
 
                                       try {
-                                        final ensured =
-                                            await repo.ensureFriendConversation(
-                                          u.id,
-                                        );
+                                        final ensured = await repo
+                                            .ensureFriendConversation(u.id);
 
                                         analytics.trackEvent(
                                           'friend_conversation_opened_from_search',
@@ -287,8 +288,9 @@ class HomeFriendsScreen extends ConsumerWidget {
                                         }
                                       } catch (_) {
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
                                             const SnackBar(
                                               content: Text(
                                                 'Could not open conversation with user.',
@@ -465,23 +467,25 @@ class HomeFriendsScreen extends ConsumerWidget {
 
               // Outgoing requests – only when not searching.
               if (searchQuery.trim().isEmpty)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Outgoing requests',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        outgoingAsync.when(
-                          data: (items) {
-                            if (items.isEmpty) {
-                              return const Text('No outgoing requests.');
-                            }
-                            return Column(
+                outgoingAsync.when(
+                  data: (items) {
+                    if (items.isEmpty) {
+                      // No outgoing requests section when there are none.
+                      return const SizedBox.shrink();
+                    }
+
+                    return Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Outgoing requests',
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Column(
                               children: items
                                   .map(
                                     (r) => ListTile(
@@ -493,8 +497,7 @@ class HomeFriendsScreen extends ConsumerWidget {
                                         ),
                                       ),
                                       title: Text(r.username),
-                                      subtitle:
-                                          const Text('Outgoing request'),
+                                      subtitle: const Text('Outgoing request'),
                                       trailing: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -536,18 +539,18 @@ class HomeFriendsScreen extends ConsumerWidget {
                                     ),
                                   )
                                   .toList(),
-                            );
-                          },
-                          loading: () => const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: LinearProgressIndicator(),
-                          ),
-                          error: (_, __) =>
-                              const Text('Error loading outgoing requests.'),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    );
+                  },
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
                   ),
+                  error: (_, __) =>
+                      const Text('Error loading outgoing requests.'),
                 ),
             ],
           ),

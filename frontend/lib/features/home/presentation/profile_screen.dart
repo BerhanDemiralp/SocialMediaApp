@@ -31,10 +31,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        centerTitle: false,
-      ),
+      appBar: AppBar(title: const Text('Profile'), centerTitle: false),
       body: SafeArea(
         child: ValueListenableBuilder<bool>(
           valueListenable: isBusy,
@@ -46,15 +43,9 @@ class ProfileScreen extends ConsumerWidget {
                 Center(
                   child: Column(
                     children: [
-                      const CircleAvatar(
-                        radius: 36,
-                        child: Text('M'),
-                      ),
+                      const CircleAvatar(radius: 36, child: Text('M')),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Moment user',
-                        style: TextStyle(fontSize: 18),
-                      ),
+                      const Text('Moment user', style: TextStyle(fontSize: 18)),
                       const SizedBox(height: 4),
                       Text(
                         'You are logged in to MOMENT.',
@@ -83,17 +74,6 @@ class ProfileScreen extends ConsumerWidget {
                       const ListTile(
                         leading: Icon(Icons.notifications),
                         title: Text('Notifications'),
-                      ),
-                      const Divider(height: 1),
-                      ListTile(
-                        leading: const Icon(Icons.groups),
-                        title: const Text('My groups'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: busy
-                            ? null
-                            : () {
-                                context.push('/groups');
-                              },
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
@@ -135,10 +115,12 @@ class ProfileScreen extends ConsumerWidget {
                   child: FilledButton.tonal(
                     onPressed: busy ? null : logout,
                     style: FilledButton.styleFrom(
-                      foregroundColor:
-                          Theme.of(context).colorScheme.onErrorContainer,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.errorContainer,
+                      foregroundColor: Theme.of(
+                        context,
+                      ).colorScheme.onErrorContainer,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.errorContainer,
                     ),
                     child: busy
                         ? const SizedBox(
