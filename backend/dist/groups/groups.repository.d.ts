@@ -44,4 +44,12 @@ export declare class GroupsRepository {
         invite_code: string;
         created_by: string;
     }[]>;
+    listMembersForGroup(groupId: string): Promise<{
+        email: string;
+        username: string;
+        id: string;
+        avatar_url: string | null;
+        created_at: Date;
+        updated_at: Date;
+    }[]>;
 }

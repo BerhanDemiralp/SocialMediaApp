@@ -44,6 +44,13 @@ let GroupsController = class GroupsController {
         }
         return this.groupsService.leaveGroup(userId, groupId);
     }
+    async listGroupMembers(req, groupId) {
+        const userId = req.user?.id;
+        if (!userId) {
+            throw new common_1.ForbiddenException('Authenticated user context is missing');
+        }
+        return this.groupsService.listGroupMembers(userId, groupId);
+    }
     async listMyGroups(req) {
         const userId = req.user?.id;
         if (!userId) {
@@ -77,6 +84,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], GroupsController.prototype, "leaveGroup", null);
+__decorate([
+    (0, common_1.Get)(':groupId/members'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('groupId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], GroupsController.prototype, "listGroupMembers", null);
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Request)()),

@@ -6,9 +6,10 @@ import '../data/home_friends_repository.dart';
 import '../data/friend_requests_api_client.dart';
 import '../data/friends_api_client.dart';
 import '../data/user_search_api_client.dart';
+import '../../../core/analytics/app_analytics.dart';
 import '../data/home_messaging_repository.dart';
 import 'home_messages_screen.dart';
-import '../../../core/analytics/app_analytics.dart';
+import 'user_action_tile.dart';
 
 final _searchQueryProvider =
     StateProvider.autoDispose<String>((ref) => '');
@@ -163,173 +164,143 @@ class HomeFriendsScreen extends ConsumerWidget {
                             final hasIncomingRequest =
                                 incomingUserIds.contains(u.id);
 
-                            Widget trailing;
-
-                            if (!hasRelationshipData) {
-                              trailing = const SizedBox.shrink();
-                            } else if (isFriend) {
-                              trailing = FilledButton.icon(
-                                onPressed: () async {
-                                  final repo = ref.read(
-                                    homeFriendsRepositoryProvider,
-                                  );
-                                  final analytics = ref.read(
-                                    appAnalyticsProvider,
-                                  );
-                                  try {
-                                    await repo.removeFriend(u.id);
-                                    analytics.trackEvent(
-                                      'friend_removed',
-                                      {'friend_id': u.id},
-                                    );
-                                    ref.invalidate(friendsProvider);
-                                    ref.invalidate(searchResultsProvider);
-                                    // Also refresh Messages tab after unfriend.
-                                    ref.invalidate(messagesFriendsProvider);
-                                    ref.invalidate(friendConversationsProvider);
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Could not remove friend.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.person_remove),
-                                label: const Text('Remove friend'),
-                              );
-                            } else if (hasOutgoingRequest) {
-                              trailing = FilledButton.tonalIcon(
-                                onPressed: null,
-                                icon: const Icon(
-                                  Icons.hourglass_empty,
-                                  size: 18,
-                                ),
-                                label: const Text('Requested'),
-                              );
-                            } else if (hasIncomingRequest) {
-                              trailing = FilledButton.tonalIcon(
-                                onPressed: null,
-                                icon: const Icon(
-                                  Icons.mail_outline,
-                                  size: 18,
-                                ),
-                                label: const Text('Requested you'),
-                              );
-                            } else {
-                              // Default: add-friend button with icon + label
-                              trailing = FilledButton.icon(
-                                onPressed: () async {
-                                  final repo = ref.read(
-                                    homeFriendsRepositoryProvider,
-                                  );
-                                  final analytics = ref.read(
-                                    appAnalyticsProvider,
-                                  );
-                                  try {
-                                    await repo.sendFriendRequest(u.id);
-                                    analytics.trackEvent(
-                                      'friend_request_sent',
-                                      {'target_user_id': u.id},
-                                    );
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Friend request sent to ${u.username}',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                    ref.invalidate(outgoingRequestsProvider);
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Could not send friend request.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  }
-                                },
-                                icon: const Icon(Icons.person_add),
-                                label: const Text('Add friend'),
-                              );
-                            }
-
-                            return ListTile(
-                              leading: CircleAvatar(
-                                child: u.avatarUrl == null
-                                    ? Text(
-                                        u.username.isNotEmpty
-                                            ? u.username[0].toUpperCase()
-                                            : '?',
-                                      )
-                                    : null,
-                              ),
-                              title: Text(u.username),
-                              trailing: trailing,
-                              onTap: () async {
-                                // Only allow direct chat from search when the user is already a friend.
-                                if (!isFriend) return;
-
-                                final openingUserId =
-                                    ref.read(_openingChatForUserIdProvider);
-                                // If we're already opening a chat for this user, ignore extra taps.
-                                if (openingUserId == u.id) return;
-
-                                final openingNotifier = ref.read(
-                                  _openingChatForUserIdProvider.notifier,
-                                );
-                                openingNotifier.state = u.id;
-
+                            return UserActionTile(
+                              userId: u.id,
+                              username: u.username,
+                              avatarUrl: u.avatarUrl,
+                              isSelf: false,
+                              isFriend: isFriend,
+                              hasIncomingRequest: hasIncomingRequest,
+                              hasOutgoingRequest: hasOutgoingRequest,
+                              onAddFriend: () async {
+                                if (!hasRelationshipData) return;
                                 final repo =
-                                    ref.read(homeMessagingRepositoryProvider);
+                                    ref.read(homeFriendsRepositoryProvider);
                                 final analytics =
                                     ref.read(appAnalyticsProvider);
-
                                 try {
-                                  final ensured =
-                                      await repo.ensureFriendConversation(u.id);
-
+                                  await repo.sendFriendRequest(u.id);
                                   analytics.trackEvent(
-                                    'friend_conversation_opened_from_search',
-                                    {
-                                      'conversation_id': ensured.conversationId,
-                                    },
+                                    'friend_request_sent',
+                                    {'target_user_id': u.id},
                                   );
-
-                                  // Refresh messages summaries so the chat list stays up to date.
-                                  ref.invalidate(friendConversationsProvider);
-
                                   if (context.mounted) {
-                                    context.push(
-                                      '/conversation/${ensured.conversationId}',
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Friend request sent to ${u.username}',
+                                        ),
+                                      ),
                                     );
                                   }
+                                  ref.invalidate(outgoingRequestsProvider);
+                                  ref.invalidate(searchResultsProvider);
                                 } catch (_) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text(
-                                          'Could not open conversation with user.',
+                                          'Could not send friend request.',
                                         ),
                                       ),
                                     );
                                   }
-                                } finally {
-                                  openingNotifier.state = null;
                                 }
                               },
+                              onRemoveFriend: isFriend
+                                  ? () async {
+                                      final repo = ref.read(
+                                        homeFriendsRepositoryProvider,
+                                      );
+                                      final analytics =
+                                          ref.read(appAnalyticsProvider);
+                                      try {
+                                        await repo.removeFriend(u.id);
+                                        analytics.trackEvent(
+                                          'friend_removed',
+                                          {'friend_id': u.id},
+                                        );
+                                        ref.invalidate(friendsProvider);
+                                        ref.invalidate(searchResultsProvider);
+                                        ref.invalidate(
+                                          messagesFriendsProvider,
+                                        );
+                                        ref.invalidate(
+                                          friendConversationsProvider,
+                                        );
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not remove friend.',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    }
+                                  : null,
+                              onOpenChat: isFriend
+                                  ? () async {
+                                      // Only allow direct chat when already a friend.
+                                      final openingUserId = ref.read(
+                                        _openingChatForUserIdProvider,
+                                      );
+                                      if (openingUserId == u.id) return;
+
+                                      final openingNotifier = ref.read(
+                                        _openingChatForUserIdProvider.notifier,
+                                      );
+                                      openingNotifier.state = u.id;
+
+                                      final repo = ref.read(
+                                        homeMessagingRepositoryProvider,
+                                      );
+                                      final analytics =
+                                          ref.read(appAnalyticsProvider);
+
+                                      try {
+                                        final ensured =
+                                            await repo.ensureFriendConversation(
+                                          u.id,
+                                        );
+
+                                        analytics.trackEvent(
+                                          'friend_conversation_opened_from_search',
+                                          {
+                                            'conversation_id':
+                                                ensured.conversationId,
+                                          },
+                                        );
+
+                                        // Refresh messages summaries so the chat list stays up to date.
+                                        ref.invalidate(
+                                          friendConversationsProvider,
+                                        );
+
+                                        if (context.mounted) {
+                                          context.push(
+                                            '/conversation/${ensured.conversationId}',
+                                          );
+                                        }
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Could not open conversation with user.',
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      } finally {
+                                        openingNotifier.state = null;
+                                      }
+                                    }
+                                  : null,
                             );
                           }).toList(),
                         );
@@ -585,4 +556,3 @@ class HomeFriendsScreen extends ConsumerWidget {
     );
   }
 }
-

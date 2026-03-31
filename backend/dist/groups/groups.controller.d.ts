@@ -30,6 +30,16 @@ export declare class GroupsController {
     }, groupId: string): Promise<{
         success: boolean;
     }>;
+    listGroupMembers(req: ExpressRequest & {
+        user?: {
+            id: string;
+        };
+    }, groupId: string): Promise<{
+        id: string;
+        username: string;
+        avatar_url: string | null;
+        is_self: boolean;
+    }[]>;
     listMyGroups(req: ExpressRequest & {
         user?: {
             id: string;

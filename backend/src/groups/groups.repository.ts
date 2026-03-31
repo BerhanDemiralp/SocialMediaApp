@@ -77,5 +77,15 @@ export class GroupsRepository {
 
     return memberships.map((membership) => membership.group);
   }
-}
 
+  async listMembersForGroup(groupId: string) {
+    const memberships = await this.prisma.group_members.findMany({
+      where: { group_id: groupId },
+      include: {
+        user: true,
+      },
+    });
+
+    return memberships.map((membership) => membership.user);
+  }
+}

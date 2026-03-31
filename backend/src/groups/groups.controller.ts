@@ -61,6 +61,20 @@ export class GroupsController {
     return this.groupsService.leaveGroup(userId, groupId);
   }
 
+  @Get(':groupId/members')
+  async listGroupMembers(
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Param('groupId') groupId: string,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    return this.groupsService.listGroupMembers(userId, groupId);
+  }
+
   @Get()
   async listMyGroups(
     @Request() req: ExpressRequest & { user?: { id: string } },
@@ -74,4 +88,3 @@ export class GroupsController {
     return this.groupsService.listMyGroups(userId);
   }
 }
-

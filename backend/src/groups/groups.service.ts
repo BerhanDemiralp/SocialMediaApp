@@ -65,6 +65,26 @@ export class GroupsService {
     return { success: true };
   }
 
+  async listGroupMembers(requestingUserId: string, groupId: string) {
+    const membership = await this.groupsRepository.findMembership(
+      requestingUserId,
+      groupId,
+    );
+
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of this group');
+    }
+
+    const users = await this.groupsRepository.listMembersForGroup(groupId);
+
+    return users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      avatar_url: user.avatar_url,
+      is_self: user.id === requestingUserId,
+    }));
+  }
+
   async listMyGroups(userId: string) {
     const groups = await this.groupsRepository.listGroupsForUser(userId);
 
@@ -75,4 +95,3 @@ export class GroupsService {
     }));
   }
 }
-

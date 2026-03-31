@@ -85,6 +85,17 @@ class ProfileScreen extends ConsumerWidget {
                         title: Text('Notifications'),
                       ),
                       const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.groups),
+                        title: const Text('My groups'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: busy
+                            ? null
+                            : () {
+                                context.push('/groups');
+                              },
+                      ),
+                      const Divider(height: 1),
                       SwitchListTile(
                         secondary: const Icon(Icons.dark_mode),
                         title: const Text('Dark mode'),

@@ -50,6 +50,19 @@ let GroupsService = class GroupsService {
         await this.groupsRepository.removeMemberFromGroup(userId, groupId);
         return { success: true };
     }
+    async listGroupMembers(requestingUserId, groupId) {
+        const membership = await this.groupsRepository.findMembership(requestingUserId, groupId);
+        if (!membership) {
+            throw new common_1.ForbiddenException('You are not a member of this group');
+        }
+        const users = await this.groupsRepository.listMembersForGroup(groupId);
+        return users.map((user) => ({
+            id: user.id,
+            username: user.username,
+            avatar_url: user.avatar_url,
+            is_self: user.id === requestingUserId,
+        }));
+    }
     async listMyGroups(userId) {
         const groups = await this.groupsRepository.listGroupsForUser(userId);
         return groups.map((group) => ({

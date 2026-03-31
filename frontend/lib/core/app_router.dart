@@ -6,6 +6,7 @@ import '../features/auth/presentation/auth_gate.dart';
 import '../features/auth/presentation/registration_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/chat/presentation/chat_screen.dart';
+import '../features/groups/presentation/groups_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -30,6 +31,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthGateScreen(),
       ),
       GoRoute(path: '/', builder: (context, state) => const HomeShellScreen()),
+      GoRoute(
+        path: '/groups',
+        builder: (context, state) => const GroupsScreen(),
+      ),
       GoRoute(
         path: '/conversation/:conversationId',
         builder: (context, state) {

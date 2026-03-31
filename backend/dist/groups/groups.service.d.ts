@@ -15,6 +15,12 @@ export declare class GroupsService {
     leaveGroup(userId: string, groupId: string): Promise<{
         success: boolean;
     }>;
+    listGroupMembers(requestingUserId: string, groupId: string): Promise<{
+        id: string;
+        username: string;
+        avatar_url: string | null;
+        is_self: boolean;
+    }[]>;
     listMyGroups(userId: string): Promise<{
         id: string;
         name: string;
