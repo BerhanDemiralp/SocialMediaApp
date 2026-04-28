@@ -164,9 +164,14 @@ class HomeMessagesScreen extends ConsumerWidget {
                               ref.invalidate(friendConversationsProvider);
                             }
 
-                            if (context.mounted) {
-                              context.push('/conversation/$conversationId');
-                            }
+                            if (!context.mounted) return;
+
+                            // Wait for the conversation screen to be popped,
+                            // then refresh summaries so the last message preview
+                            // is up to date when returning to the Messages tab.
+                            await context
+                                .push('/conversation/$conversationId');
+                            ref.invalidate(friendConversationsProvider);
                           } catch (_) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(

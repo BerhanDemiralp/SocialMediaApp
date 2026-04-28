@@ -1,30 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/app_router.dart';
-import 'core/env/app_env.dart';
+import 'core/supabase/supabase_init.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (AppEnv.isSupabaseConfigured) {
-    await Supabase.initialize(
-      url: AppEnv.supabaseUrl,
-      anonKey: AppEnv.supabaseAnonKey,
-    );
-  }
-
   runApp(const ProviderScope(child: MomentApp()));
 }
 
-class MomentApp extends ConsumerWidget {
+class MomentApp extends ConsumerStatefulWidget {
   const MomentApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MomentApp> createState() => _MomentAppState();
+}
+
+class _MomentAppState extends ConsumerState<MomentApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeSupabase();
+    });
+  }
+
+  Future<void> _initializeSupabase() async {
+    final notifier = ref.read(supabaseInitializationProvider.notifier);
+    notifier.state = const AsyncValue<void>.loading();
+
+    try {
+      await initializeSupabaseClient();
+      notifier.state = const AsyncValue<void>.data(null);
+    } catch (error, stackTrace) {
+      notifier.state = AsyncValue<void>.error(error, stackTrace);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -32,7 +49,7 @@ class MomentApp extends ConsumerWidget {
       title: 'MOMENT',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-       themeMode: themeMode,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

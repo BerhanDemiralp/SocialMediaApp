@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +12,15 @@ import '../features/groups/presentation/groups_screen.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
+    errorBuilder: (context, state) => Scaffold(
+      appBar: AppBar(title: const Text('Moment')),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Could not open this screen.'),
+        ),
+      ),
+    ),
     redirect: (context, state) {
       final authState = ref.read(appAuthStateProvider);
       final loggingIn = state.matchedLocation.startsWith('/auth');

@@ -15,24 +15,21 @@ class HomeShellScreen extends ConsumerStatefulWidget {
 
 class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
   int _currentIndex = 0;
+  final Set<int> _loadedTabIndexes = {0};
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          HomeMainScreen(),
-          HomeMessagesScreen(),
-          GroupsScreen(),
-          ProfileScreen(),
-        ],
+        children: List<Widget>.generate(4, _buildTab),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
           setState(() {
             _currentIndex = index;
+            _loadedTabIndexes.add(index);
           });
         },
         destinations: const [
@@ -59,5 +56,24 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildTab(int index) {
+    if (!_loadedTabIndexes.contains(index)) {
+      return const SizedBox.shrink();
+    }
+
+    switch (index) {
+      case 0:
+        return const HomeMainScreen();
+      case 1:
+        return const HomeMessagesScreen();
+      case 2:
+        return const GroupsScreen();
+      case 3:
+        return const ProfileScreen();
+    }
+
+    return const SizedBox.shrink();
   }
 }

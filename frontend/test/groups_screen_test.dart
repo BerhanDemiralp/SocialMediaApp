@@ -2,45 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:moment_app/features/groups/presentation/groups_controller.dart';
 import 'package:moment_app/features/groups/presentation/groups_screen.dart';
 import 'package:moment_app/features/groups/data/groups_api_client.dart';
+import 'package:moment_app/features/groups/data/groups_repository.dart';
 
-class _FakeGroupsController extends StateNotifier<GroupsState> {
-  _FakeGroupsController(GroupsState state) : super(state);
+class _FakeGroupsRepository extends GroupsRepository {
+  _FakeGroupsRepository(this._groups)
+    : super(apiClient: _NeverCalledApiClient());
 
-  @override
-  Future<void> loadGroups() async {}
-
-  @override
-  Future<void> createGroup(String name) async {}
+  final List<GroupSummary> _groups;
 
   @override
-  Future<void> joinGroup(String inviteCode) async {}
+  Future<List<GroupSummary>> listMyGroups() async => _groups;
 
   @override
-  Future<void> leaveGroup(String groupId) async {}
+  Future<GroupSummary> createGroup(String name) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<GroupSummary> joinGroup(String inviteCode) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> leaveGroup(String groupId) async {
+    throw UnimplementedError();
+  }
+}
+
+class _NeverCalledApiClient implements GroupsApiClient {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  testWidgets('shows empty state when there are no groups',
-      (WidgetTester tester) async {
-    final initialState = GroupsState(
-      groups: const <GroupSummary>[],
-      isLoading: false,
-      error: null,
-    );
-
+  testWidgets('shows empty state when there are no groups', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          groupsControllerProvider.overrideWith(
-            (ref) => _FakeGroupsController(initialState),
+          groupsRepositoryProvider.overrideWithValue(
+            _FakeGroupsRepository(const <GroupSummary>[]),
           ),
         ],
-        child: const MaterialApp(
-          home: GroupsScreen(),
-        ),
+        child: const MaterialApp(home: GroupsScreen()),
       ),
     );
 
@@ -58,22 +65,14 @@ void main() {
       const GroupSummary(id: 'g2', name: 'Group Two', inviteCode: 'code-2'),
     ];
 
-    final initialState = GroupsState(
-      groups: groups,
-      isLoading: false,
-      error: null,
-    );
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          groupsControllerProvider.overrideWith(
-            (ref) => _FakeGroupsController(initialState),
+          groupsRepositoryProvider.overrideWithValue(
+            _FakeGroupsRepository(groups),
           ),
         ],
-        child: const MaterialApp(
-          home: GroupsScreen(),
-        ),
+        child: const MaterialApp(home: GroupsScreen()),
       ),
     );
 
@@ -81,8 +80,6 @@ void main() {
 
     expect(find.text('Group One'), findsOneWidget);
     expect(find.text('Group Two'), findsOneWidget);
-    expect(find.textContaining('Invite code: code-1'), findsOneWidget);
-    expect(find.textContaining('Invite code: code-2'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNWidgets(2));
   });
 }
-

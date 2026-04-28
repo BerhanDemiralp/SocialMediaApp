@@ -14,7 +14,8 @@ class _FakeSupabaseClient implements SupabaseClient {
   @override
   GoTrueClient get auth => _FakeAuthClient(_token);
 
-  // Other members are not used in these tests.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeAuthClient implements GoTrueClient {
@@ -23,10 +24,25 @@ class _FakeAuthClient implements GoTrueClient {
   final String? _token;
 
   @override
-  Session? get currentSession =>
-      _token == null ? null : Session(accessToken: _token!, user: User(id: 'u'));
+  Session? get currentSession {
+    final token = _token;
+    if (token == null) return null;
 
-  // Other members are not used in these tests.
+    return Session(
+      accessToken: token,
+      tokenType: 'bearer',
+      user: const User(
+        id: 'u',
+        appMetadata: <String, dynamic>{},
+        userMetadata: <String, dynamic>{},
+        aud: 'authenticated',
+        createdAt: '2026-04-28T00:00:00.000Z',
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeHttpClient extends http.BaseClient {
@@ -53,7 +69,11 @@ void main() {
         {'id': 'g1', 'name': 'Group One', 'invite_code': 'code-1'},
         {'id': 'g2', 'name': 'Group Two', 'invite_code': 'code-2'},
       ]);
-      return http.Response(body, 200, headers: {'content-type': 'application/json'});
+      return http.Response(
+        body,
+        200,
+        headers: {'content-type': 'application/json'},
+      );
     });
 
     final supabase = _FakeSupabaseClient('token');
@@ -68,4 +88,3 @@ void main() {
     expect(groups[0].inviteCode, 'code-1');
   });
 }
-

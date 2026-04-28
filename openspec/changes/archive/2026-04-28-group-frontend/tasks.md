@@ -1,6 +1,7 @@
 ## Tasks
 
 ### 1. Data layer: Groups API client
+
 - [x] Add a `GroupsApiClient` in the Flutter frontend data layer that:
   - [x] Uses `AppEnv.apiBaseUrl` as the base URL.
   - [x] Reads the current Supabase session and attaches `Authorization: Bearer <accessToken>` to all requests.
@@ -11,6 +12,7 @@
     - [x] `Future<void> leaveGroup({required String groupId})`
 
 ### 2. Domain model and repository
+
 - [x] Define a `GroupSummary` domain model with at least:
   - [x] `id`, `name`, `inviteCode`.
 - [x] Create a `GroupsRepository` that depends on `GroupsApiClient` and:
@@ -19,6 +21,7 @@
 - [x] Add a Riverpod provider for `GroupsRepository` (for example, `groupsRepositoryProvider`).
 
 ### 3. State and controllers
+
 - [x] Introduce Riverpod state for group management:
   - [x] A `StateNotifier` for loading the user’s group list.
   - [x] A controller (`GroupsController`) or equivalent methods that:
@@ -28,6 +31,7 @@
   - [x] Handle loading and error states for each action, surfacing user-friendly messages.
 
 ### 4. UI: Group Management screen
+
 - [x] Add a `GroupsScreen` in the presentation layer that:
   - [x] Subscribes to the groups controller state and renders:
     - [x] Loading state while fetching.
@@ -40,19 +44,20 @@
   - [x] Shows non-blocking error/confirmation messages (e.g., SnackBar) for success/failure of operations.
 
 ### 5. Navigation integration
+
 - [x] Add at least one navigation entry point to `GroupsScreen`:
   - [x] From Profile (a “My Groups” row) or equivalent.
   - [x] Ensure navigation respects existing routing patterns in `app_router.dart`.
 - [x] Ensure the entry point is only available to authenticated users (consistent with other auth-gated features).
 
 ### 6. Tests and polish
-- [ ] Add unit tests for `GroupsRepository` mapping and error handling.
+
+- [x] Add unit tests for `GroupsRepository` mapping and error handling.
 - [x] Add widget or state tests (where feasible) to cover:
   - [x] Successful list rendering.
   - [x] Empty state.
-  - [ ] Create/join/leave flows with mocked repository.
-- [ ] Manually verify flows against a running backend:
-  - [ ] Create group, confirm appears in backend DB.
-  - [ ] Join existing group via invite code.
-  - [ ] Leave group and confirm membership is removed.
-
+  - [x] Create/join/leave flows with mocked repository.
+- [x] Manually verify flows against a running backend:
+  - [x] Create group, confirm appears in backend DB.
+  - [x] Join existing group via invite code.
+  - [x] Leave group and confirm membership is removed.

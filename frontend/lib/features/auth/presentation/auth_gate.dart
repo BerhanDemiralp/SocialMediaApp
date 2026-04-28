@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/supabase/supabase_init.dart';
 import '../data/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -113,7 +114,13 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isBusy = _isLoading;
+    final supabaseState = ref.watch(supabaseInitializationProvider);
+    final isSupabaseReady = supabaseState.hasValue;
+    final isSupabaseLoading = supabaseState.isLoading;
+    final isBusy = _isLoading || isSupabaseLoading;
+    final supabaseError = supabaseState.hasError
+        ? 'Missing Supabase config. Restart with SUPABASE_URL and SUPABASE_ANON_KEY.'
+        : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Welcome to MOMENT')),
@@ -151,8 +158,17 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
+                if (supabaseError != null) ...[
+                  Text(
+                    supabaseError,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 FilledButton(
-                  onPressed: isBusy ? null : _signIn,
+                  onPressed: !isSupabaseReady || isBusy ? null : _signIn,
                   child: isBusy
                       ? const SizedBox(
                           height: 16,
@@ -163,11 +179,12 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton(
-                  onPressed: isBusy ? null : _signUp,
+                  onPressed: !isSupabaseReady || isBusy ? null : _signUp,
                   child: const Text('Sign up'),
                 ),
                 TextButton(
-                  onPressed: isBusy ? null : _sendResetEmail,
+                  onPressed:
+                      !isSupabaseReady || isBusy ? null : _sendResetEmail,
                   child: const Text('Forgot password?'),
                 ),
               ],

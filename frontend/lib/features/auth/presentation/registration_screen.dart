@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
-import '../data/auth_repository.dart';
+import '../../../core/supabase/supabase_init.dart';
 import 'auth_gate.dart';
 
 class RegistrationState {
@@ -53,10 +53,10 @@ class RegistrationState {
 }
 
 class RegistrationController extends StateNotifier<RegistrationState> {
-  RegistrationController(this._authRepository, this._analytics)
+  RegistrationController(this._ref, this._analytics)
       : super(const RegistrationState.initial());
 
-  final AuthRepository _authRepository;
+  final Ref _ref;
   final AppAnalytics _analytics;
 
   void updateEmail(String value) {
@@ -80,7 +80,16 @@ class RegistrationController extends StateNotifier<RegistrationState> {
     _analytics.trackEvent('registration_submitted', {});
 
     try {
-      final response = await _authRepository.signUpWithEmail(
+      final supabaseState = _ref.read(supabaseInitializationProvider);
+      if (!supabaseState.hasValue) {
+        state = state.copyWith(
+          errorMessage: 'Authentication is still starting. Please try again.',
+        );
+        return false;
+      }
+
+      final authRepository = _ref.read(authRepositoryProvider);
+      final response = await authRepository.signUpWithEmail(
         state.email.trim(),
         state.username.trim(),
         state.password.trim(),
@@ -131,9 +140,8 @@ class RegistrationController extends StateNotifier<RegistrationState> {
 
 final registrationControllerProvider =
     StateNotifierProvider<RegistrationController, RegistrationState>((ref) {
-  final authRepo = ref.read(authRepositoryProvider);
   final analytics = ref.read(appAnalyticsProvider);
-  return RegistrationController(authRepo, analytics);
+  return RegistrationController(ref, analytics);
 });
 
 class RegistrationScreen extends ConsumerWidget {
@@ -163,7 +171,9 @@ class RegistrationScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(registrationControllerProvider);
-    final isBusy = state.isSubmitting;
+    final supabaseState = ref.watch(supabaseInitializationProvider);
+    final isSupabaseReady = supabaseState.hasValue;
+    final isBusy = state.isSubmitting || supabaseState.isLoading;
 
     // Fire registration_started once per mount.
     ref.listen<RegistrationState>(registrationControllerProvider,
@@ -235,7 +245,7 @@ class RegistrationScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                 ],
                 FilledButton(
-                  onPressed: !state.isValid || isBusy
+                  onPressed: !state.isValid || !isSupabaseReady || isBusy
                       ? null
                       : () async {
                           final ok = await ref

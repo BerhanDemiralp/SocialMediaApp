@@ -7,6 +7,7 @@ import 'package:moment_app/features/auth/presentation/auth_gate.dart';
 import 'package:moment_app/features/auth/presentation/registration_screen.dart';
 import 'package:moment_app/core/auth/auth_state.dart';
 import 'package:moment_app/core/analytics/app_analytics.dart';
+import 'package:moment_app/core/supabase/supabase_init.dart';
 
 class _FakeAuthRepository implements AuthRepository {
   @override
@@ -37,9 +38,13 @@ class _FakeAuthRepository implements AuthRepository {
   }
 }
 
+class _FakeRef implements Ref {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _SuccessfulRegistrationController extends RegistrationController {
-  _SuccessfulRegistrationController()
-      : super(_FakeAuthRepository(), const AppAnalytics());
+  _SuccessfulRegistrationController() : super(_FakeRef(), const AppAnalytics());
 
   @override
   Future<bool> submit(WidgetRef ref) async {
@@ -64,7 +69,7 @@ class _SuccessfulRegistrationController extends RegistrationController {
 
 class _ErrorRegistrationController extends RegistrationController {
   _ErrorRegistrationController(this._message)
-      : super(_FakeAuthRepository(), const AppAnalytics());
+    : super(_FakeRef(), const AppAnalytics());
 
   final String _message;
 
@@ -81,8 +86,7 @@ class _ErrorRegistrationController extends RegistrationController {
 }
 
 class _BusyRegistrationController extends RegistrationController {
-  _BusyRegistrationController()
-      : super(_FakeAuthRepository(), const AppAnalytics()) {
+  _BusyRegistrationController() : super(_FakeRef(), const AppAnalytics()) {
     // Simulate an in-flight request.
     state = state.copyWith(isSubmitting: true);
   }
@@ -96,18 +100,20 @@ void main() {
         ProviderScope(
           overrides: [
             authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            supabaseInitializationProvider.overrideWith(
+              (ref) => const AsyncValue<void>.data(null),
+            ),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
-          ),
+          child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
         ),
       );
 
       await tester.pumpAndSettle();
 
       // Initially, the form is empty and the submit button should be disabled.
-      FilledButton button =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      FilledButton button = tester.widget<FilledButton>(
+        find.byType(FilledButton),
+      );
       expect(button.onPressed, isNull);
 
       // Fill in valid values for all fields.
@@ -138,10 +144,11 @@ void main() {
         ProviderScope(
           overrides: [
             authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            supabaseInitializationProvider.overrideWith(
+              (ref) => const AsyncValue<void>.data(null),
+            ),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
-          ),
+          child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
         ),
       );
 
@@ -154,10 +161,7 @@ void main() {
       );
 
       // Enter a too-short username.
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Username'),
-        'ab',
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Username'), 'ab');
 
       // Enter a too-short password.
       await tester.enterText(
@@ -167,10 +171,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Enter a valid email address'),
-        findsOneWidget,
-      );
+      expect(find.text('Enter a valid email address'), findsOneWidget);
       expect(
         find.text('Username must be at least 3 characters'),
         findsOneWidget,
@@ -189,10 +190,11 @@ void main() {
         ProviderScope(
           overrides: [
             authRepositoryProvider.overrideWithValue(_FakeAuthRepository()),
+            supabaseInitializationProvider.overrideWith(
+              (ref) => const AsyncValue<void>.data(null),
+            ),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
-          ),
+          child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
         ),
       );
 
@@ -204,10 +206,7 @@ void main() {
         '  user@example.com  ',
       );
       // Username at minimum length.
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Username'),
-        'abc',
-      );
+      await tester.enterText(find.widgetWithText(TextField, 'Username'), 'abc');
       // Password at minimum length.
       await tester.enterText(
         find.widgetWithText(TextField, 'Password'),
@@ -216,60 +215,59 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final button =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(button.onPressed, isNotNull);
     },
   );
 
-  testWidgets(
-    'successful registration authenticates the user (5.2)',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            registrationControllerProvider.overrideWith(
-              (ref) => _SuccessfulRegistrationController(),
-            ),
-          ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
+  testWidgets('successful registration authenticates the user (5.2)', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          supabaseInitializationProvider.overrideWith(
+            (ref) => const AsyncValue<void>.data(null),
           ),
-        ),
-      );
+          registrationControllerProvider.overrideWith(
+            (ref) => _SuccessfulRegistrationController(),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
+      ),
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      // Fill in valid values.
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Email'),
-        'user@example.com',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Username'),
-        'testuser',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Password'),
-        'password123',
-      );
+    // Fill in valid values.
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Email'),
+      'user@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Username'),
+      'testuser',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Password'),
+      'password123',
+    );
 
-      await tester.pumpAndSettle();
+    await tester.pumpAndSettle();
 
-      // Tap the submit button.
-      await tester.tap(find.byType(FilledButton));
-      await tester.pumpAndSettle();
+    // Tap the submit button.
+    await tester.tap(find.byType(FilledButton));
+    await tester.pumpAndSettle();
 
-      // Verify that the auth state has been set to authenticated,
-      // which is the prerequisite for navigating to the Home shell.
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(RegistrationScreen)),
-        listen: false,
-      );
-      final authState = container.read(appAuthStateProvider);
-      expect(authState.isAuthenticated, isTrue);
-    },
-  );
+    // Verify that the auth state has been set to authenticated,
+    // which is the prerequisite for navigating to the Home shell.
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(RegistrationScreen)),
+      listen: false,
+    );
+    final authState = container.read(appAuthStateProvider);
+    expect(authState.isAuthenticated, isTrue);
+  });
 
   testWidgets(
     'backend error message is shown on the registration screen (5.3)',
@@ -279,13 +277,14 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            supabaseInitializationProvider.overrideWith(
+              (ref) => const AsyncValue<void>.data(null),
+            ),
             registrationControllerProvider.overrideWith(
               (ref) => _ErrorRegistrationController(errorMessage),
             ),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
-          ),
+          child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
         ),
       );
 
@@ -322,21 +321,21 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            supabaseInitializationProvider.overrideWith(
+              (ref) => const AsyncValue<void>.data(null),
+            ),
             registrationControllerProvider.overrideWith(
               (ref) => _BusyRegistrationController(),
             ),
           ],
-          child: const MaterialApp(
-            home: Scaffold(body: RegistrationScreen()),
-          ),
+          child: const MaterialApp(home: Scaffold(body: RegistrationScreen())),
         ),
       );
 
       // Just pump a single frame to build the widget tree.
       await tester.pump();
 
-      final button =
-          tester.widget<FilledButton>(find.byType(FilledButton));
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
       expect(button.onPressed, isNull);
     },
   );
