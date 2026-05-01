@@ -1,22 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/supabase/supabase_init.dart';
 import '../data/auth_repository.dart';
-
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
-
-  ref.onDispose(httpClient.close);
-
-  return AuthRepository(supabaseClient, httpClient);
-});
 
 class AuthGateScreen extends ConsumerStatefulWidget {
   const AuthGateScreen({super.key});
@@ -68,7 +57,14 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
           _error = 'Sign in failed. Please check your credentials.';
         });
       }
-    } catch (e) {
+    } on StateError catch (e) {
+      analytics.trackEvent('login_failed', {'type': 'server'});
+      setState(() {
+        _error = e.message.isNotEmpty
+            ? e.message
+            : 'Sign in failed. Please try again.';
+      });
+    } catch (_) {
       analytics.trackEvent('login_failed', {'type': 'network'});
       setState(() {
         _error = 'Sign in failed. Please try again.';

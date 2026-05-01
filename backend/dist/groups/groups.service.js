@@ -25,11 +25,12 @@ let GroupsService = class GroupsService {
             id: group.id,
             name: group.name,
             invite_code: group.invite_code,
+            conversation_id: group.conversation_id,
         };
     }
     async joinGroupByInviteCode(userId, inviteCode) {
         const group = await this.groupsRepository.findGroupByInviteCode(inviteCode);
-        if (!group) {
+        if (!group || group.deleted_at) {
             throw new common_1.BadRequestException('Invalid invite code');
         }
         const existingMembership = await this.groupsRepository.findMembership(userId, group.id);
@@ -40,6 +41,7 @@ let GroupsService = class GroupsService {
             id: group.id,
             name: group.name,
             invite_code: group.invite_code,
+            conversation_id: group.conversation_id,
         };
     }
     async leaveGroup(userId, groupId) {
@@ -69,7 +71,19 @@ let GroupsService = class GroupsService {
             id: group.id,
             name: group.name,
             invite_code: group.invite_code,
+            conversation_id: group.conversation_id,
         }));
+    }
+    async deleteGroup(userId, groupId) {
+        const group = await this.groupsRepository.findGroupById(groupId);
+        if (!group || group.deleted_at) {
+            throw new common_1.NotFoundException('Group not found');
+        }
+        if (group.created_by !== userId) {
+            throw new common_1.ForbiddenException('Only the group creator can delete it');
+        }
+        await this.groupsRepository.deleteGroupWithChat(groupId);
+        return { success: true };
     }
 };
 exports.GroupsService = GroupsService;

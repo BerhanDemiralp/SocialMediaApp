@@ -16,6 +16,8 @@ export declare class ConversationsController {
             type: import("@prisma/client").$Enums.ConversationType;
             title: string | null;
             friendMatchId: null;
+            groupId: string | null;
+            groupName: string | null;
             participants: {
                 id: string;
                 username: string;
@@ -34,13 +36,23 @@ export declare class ConversationsController {
             id: string;
         };
     }, query: GetConversationMessagesQueryDto): Promise<{
-        items: {
+        items: ({
+            sender: {
+                email: string;
+                username: string;
+                id: string;
+                avatar_url: string | null;
+                created_at: Date;
+                updated_at: Date;
+            };
+        } & {
             id: string;
             created_at: Date;
             content: string;
+            deleted_at: Date | null;
             conversation_id: string;
             sender_id: string;
-        }[];
+        })[];
         nextCursor: string | null;
     }>;
     createConversationMessage(conversationId: string, req: ExpressRequest & {
@@ -50,9 +62,19 @@ export declare class ConversationsController {
     }, body: {
         content?: string;
     }): Promise<{
+        sender: {
+            email: string;
+            username: string;
+            id: string;
+            avatar_url: string | null;
+            created_at: Date;
+            updated_at: Date;
+        };
+    } & {
         id: string;
         created_at: Date;
         content: string;
+        deleted_at: Date | null;
         conversation_id: string;
         sender_id: string;
     }>;
@@ -65,6 +87,8 @@ export declare class ConversationsController {
         type: import("@prisma/client").$Enums.ConversationType;
         title: string | null;
         friendMatchId: null;
+        groupId: string | null;
+        groupName: string | null;
         participants: {
             id: string;
             username: string;

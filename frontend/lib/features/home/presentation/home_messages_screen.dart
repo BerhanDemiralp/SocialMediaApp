@@ -75,36 +75,44 @@ class HomeMessagesScreen extends ConsumerWidget {
               },
               child: friendsAsync.when(
                 data: (friends) {
-                  if (friends.isEmpty) {
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: const [
-                        SizedBox(height: 24),
-                        Text('You have no friends yet.'),
-                      ],
-                    );
-                  }
-
                   final conversations = conversationsAsync.maybeWhen(
                     data: (items) => items,
                     orElse: () => const <FriendConversationSummary>[],
                   );
 
                   final convoByFriendId = {
-                    for (final c in conversations) c.friendId: c,
+                    for (final c in conversations)
+                      if (!c.isGroup && c.friendId != null) c.friendId!: c,
                   };
+                  final normalizedQuery = searchQuery.trim().toLowerCase();
 
-                  final filteredFriends = searchQuery.trim().isEmpty
-                      ? friends
-                      : friends
+                  final filteredConversations = normalizedQuery.isEmpty
+                      ? conversations
+                      : conversations
                           .where(
-                            (f) => f.username
-                                .toLowerCase()
-                                .contains(searchQuery.toLowerCase()),
+                            (c) =>
+                                c.displayName
+                                    .toLowerCase()
+                                    .contains(normalizedQuery) ||
+                                (c.lastMessagePreview ?? '')
+                                    .toLowerCase()
+                                    .contains(normalizedQuery),
                           )
                           .toList();
 
-                  if (filteredFriends.isEmpty) {
+                  final filteredFriends = friends
+                      .where((friend) => !convoByFriendId.containsKey(friend.id))
+                      .where(
+                        (friend) =>
+                            normalizedQuery.isEmpty ||
+                            friend.username
+                                .toLowerCase()
+                                .contains(normalizedQuery),
+                      )
+                      .toList();
+
+                  if (filteredConversations.isEmpty &&
+                      filteredFriends.isEmpty) {
                     return ListView(
                       padding: const EdgeInsets.all(16),
                       children: const [
@@ -116,10 +124,45 @@ class HomeMessagesScreen extends ConsumerWidget {
 
                   return ListView.builder(
                     padding: const EdgeInsets.all(8),
-                    itemCount: filteredFriends.length,
+                    itemCount:
+                        filteredConversations.length + filteredFriends.length,
                     itemBuilder: (context, index) {
-                      final friend = filteredFriends[index];
-                      final convo = convoByFriendId[friend.id];
+                      if (index < filteredConversations.length) {
+                        final convo = filteredConversations[index];
+                        final analytics = ref.read(appAnalyticsProvider);
+
+                        return _ConversationListTile(
+                          conversation: convo,
+                          formattedTime: convo.lastMessageAt != null
+                              ? _formatTime(convo.lastMessageAt!)
+                              : null,
+                          onTap: () async {
+                            analytics.trackEvent(
+                              convo.isGroup
+                                  ? 'group_conversation_opened'
+                                  : 'friend_conversation_opened',
+                              {'conversation_id': convo.conversationId},
+                            );
+
+                            final route = convo.isGroup
+                                ? Uri(
+                                    path:
+                                        '/conversation/${convo.conversationId}',
+                                    queryParameters: {
+                                      'type': 'group',
+                                      'title': convo.displayName,
+                                    },
+                                  ).toString()
+                                : '/conversation/${convo.conversationId}';
+
+                            await context.push(route);
+                            ref.invalidate(friendConversationsProvider);
+                          },
+                        );
+                      }
+
+                      final friend =
+                          filteredFriends[index - filteredConversations.length];
                       final analytics = ref.read(appAnalyticsProvider);
 
                       return ListTile(
@@ -131,17 +174,7 @@ class HomeMessagesScreen extends ConsumerWidget {
                           ),
                         ),
                         title: Text(friend.username),
-                        subtitle: Text(
-                          convo?.lastMessagePreview ?? 'No messages yet.',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: convo?.lastMessageAt != null
-                            ? Text(
-                                _formatTime(convo!.lastMessageAt!),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              )
-                            : null,
+                        subtitle: const Text('No messages yet.'),
                         onTap: () async {
                           final repo =
                               ref.read(homeMessagingRepositoryProvider);
@@ -149,28 +182,22 @@ class HomeMessagesScreen extends ConsumerWidget {
                           try {
                             // If we already have a conversation for this friend, reuse it
                             // to allow opening historical chats even if friendship has changed.
-                            final conversationId = convo != null
-                                ? convo.conversationId
-                                : (await repo.ensureFriendConversation(
-                                        friend.id))
+                            final conversationId =
+                                (await repo.ensureFriendConversation(friend.id))
                                     .conversationId;
 
                             analytics.trackEvent('friend_conversation_opened', {
                               'conversation_id': conversationId,
                             });
 
-                            // Refresh cached conversations list when we had to ensure it.
-                            if (convo == null) {
-                              ref.invalidate(friendConversationsProvider);
-                            }
+                            ref.invalidate(friendConversationsProvider);
 
                             if (!context.mounted) return;
 
                             // Wait for the conversation screen to be popped,
                             // then refresh summaries so the last message preview
                             // is up to date when returning to the Messages tab.
-                            await context
-                                .push('/conversation/$conversationId');
+                            await context.push('/conversation/$conversationId');
                             ref.invalidate(friendConversationsProvider);
                           } catch (_) {
                             if (context.mounted) {
@@ -218,5 +245,72 @@ class HomeMessagesScreen extends ConsumerWidget {
     }
     final minutes = time.minute.toString().padLeft(2, '0');
     return '${time.hour}:$minutes';
+  }
+}
+
+class _ConversationListTile extends StatelessWidget {
+  const _ConversationListTile({
+    required this.conversation,
+    required this.onTap,
+    this.formattedTime,
+  });
+
+  final FriendConversationSummary conversation;
+  final VoidCallback onTap;
+  final String? formattedTime;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isGroup = conversation.isGroup;
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: isGroup
+            ? theme.colorScheme.secondaryContainer
+            : theme.colorScheme.primaryContainer,
+        foregroundColor: isGroup
+            ? theme.colorScheme.onSecondaryContainer
+            : theme.colorScheme.onPrimaryContainer,
+        child: isGroup
+            ? const Icon(Icons.groups)
+            : Text(
+                conversation.displayName.isNotEmpty
+                    ? conversation.displayName[0].toUpperCase()
+                    : '?',
+              ),
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              conversation.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (isGroup) ...[
+            const SizedBox(width: 8),
+            Icon(
+              Icons.tag,
+              size: 16,
+              color: theme.colorScheme.secondary,
+            ),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        conversation.lastMessagePreview ?? 'No messages yet.',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: formattedTime != null
+          ? Text(
+              formattedTime!,
+              style: theme.textTheme.bodySmall,
+            )
+          : null,
+      onTap: onTap,
+    );
   }
 }

@@ -1,9 +1,19 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env/app_env.dart';
+
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final supabaseClient = Supabase.instance.client;
+  final httpClient = http.Client();
+
+  ref.onDispose(httpClient.close);
+
+  return AuthRepository(supabaseClient, httpClient);
+});
 
 class AuthRepository {
   AuthRepository(this._client, this._httpClient);
@@ -14,7 +24,48 @@ class AuthRepository {
   Future<AuthResponse> signInWithEmail(
     String email,
     String password,
-  ) {
+  ) async {
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/auth/login');
+
+    http.Response response;
+    try {
+      response = await _httpClient.post(
+        uri,
+        headers: const {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+    } catch (_) {
+      throw StateError(
+        'Could not reach the login server. Please try again later.',
+      );
+    }
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      String errorMessage =
+          'Sign in failed. Please check your credentials and try again.';
+
+      try {
+        final Map<String, dynamic> body =
+            jsonDecode(response.body) as Map<String, dynamic>;
+        final dynamic rawMessage = body['message'];
+
+        if (rawMessage is String && rawMessage.isNotEmpty) {
+          errorMessage = rawMessage;
+        } else if (rawMessage is List && rawMessage.isNotEmpty) {
+          errorMessage = rawMessage.first.toString();
+        }
+      } catch (_) {
+        // Ignore JSON parsing errors and fall back to the generic message.
+      }
+
+      throw StateError(errorMessage);
+    }
+
     return _client.auth.signInWithPassword(
       email: email,
       password: password,
@@ -82,6 +133,29 @@ class AuthRepository {
 
   Future<void> signOut() {
     return _client.auth.signOut();
+  }
+
+  Future<void> syncCurrentUser() async {
+    final token = _client.auth.currentSession?.accessToken;
+
+    if (token == null) {
+      return;
+    }
+
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/auth/sync');
+    final response = await _httpClient.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw StateError(
+        'Could not sync authenticated user (status ${response.statusCode}).',
+      );
+    }
   }
 
   Future<void> sendPasswordResetEmail(String email) {

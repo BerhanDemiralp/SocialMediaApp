@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/app_router.dart';
+import 'core/auth/auth_state.dart';
 import 'core/supabase/supabase_init.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
+import 'features/auth/data/auth_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +36,12 @@ class _MomentAppState extends ConsumerState<MomentApp> {
 
     try {
       await initializeSupabaseClient();
+      final authRepository = ref.read(authRepositoryProvider);
+      if (authRepository.currentSession != null) {
+        await authRepository.syncCurrentUser();
+        ref.read(appAuthStateProvider.notifier).state =
+            const AppAuthState.authenticated();
+      }
       notifier.state = const AsyncValue<void>.data(null);
     } catch (error, stackTrace) {
       notifier.state = AsyncValue<void>.error(error, stackTrace);

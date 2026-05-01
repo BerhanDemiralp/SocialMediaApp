@@ -6,11 +6,13 @@ export declare class GroupsService {
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }>;
     joinGroupByInviteCode(userId: string, inviteCode: string): Promise<{
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }>;
     leaveGroup(userId: string, groupId: string): Promise<{
         success: boolean;
@@ -25,5 +27,9 @@ export declare class GroupsService {
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }[]>;
+    deleteGroup(userId: string, groupId: string): Promise<{
+        success: boolean;
+    }>;
 }

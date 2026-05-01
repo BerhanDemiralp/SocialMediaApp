@@ -7,22 +7,30 @@ import '../../../core/env/app_env.dart';
 
 class FriendConversationSummary {
   const FriendConversationSummary({
-    required this.friendId,
+    this.friendId,
     required this.conversationId,
     this.matchId,
     required this.displayName,
+    this.conversationType = 'friend',
+    this.groupId,
+    this.groupName,
     this.avatarUrl,
     this.lastMessagePreview,
     this.lastMessageAt,
   });
 
-  final String friendId;
+  final String? friendId;
   final String conversationId;
   final String? matchId;
   final String displayName;
+  final String conversationType;
+  final String? groupId;
+  final String? groupName;
   final String? avatarUrl;
   final String? lastMessagePreview;
   final DateTime? lastMessageAt;
+
+  bool get isGroup => conversationType == 'group';
 }
 
 class FriendConversationsApiClient {
@@ -77,7 +85,7 @@ class FriendConversationsApiClient {
     }
 
     final uri = Uri.parse(
-      '${AppEnv.apiBaseUrl}/conversations?type=friend&limit=$limit',
+      '${AppEnv.apiBaseUrl}/conversations?limit=$limit',
     );
 
     final response = await _httpClient.get(
@@ -90,7 +98,7 @@ class FriendConversationsApiClient {
 
     if (response.statusCode != 200) {
       throw StateError(
-        'Failed to load friend conversations (status ${response.statusCode}).',
+        'Failed to load conversations (status ${response.statusCode}).',
       );
     }
 
@@ -126,15 +134,29 @@ class FriendConversationsApiClient {
     final createdAtRaw = lastMessage['created_at'] as String?;
     final createdAt =
         createdAtRaw != null ? DateTime.parse(createdAtRaw) : null;
+    final conversationType = map['type'] as String? ?? 'friend';
+    final groupName = map['groupName'] as String?;
 
     return FriendConversationSummary(
-      friendId: other != null ? other['id'] as String : currentUserId,
+      friendId: conversationType == 'group'
+          ? null
+          : other != null
+              ? other['id'] as String
+              : currentUserId,
       conversationId: map['id'] as String,
       matchId: map['friendMatchId'] as String?,
-      displayName:
-          (other != null ? other['username'] : map['title']) as String? ??
+      displayName: conversationType == 'group'
+          ? groupName ?? map['title'] as String? ?? 'Group chat'
+          : (other != null ? other['username'] : map['title']) as String? ??
               'Conversation',
-      avatarUrl: other != null ? other['avatar_url'] as String? : null,
+      conversationType: conversationType,
+      groupId: map['groupId'] as String?,
+      groupName: groupName,
+      avatarUrl: conversationType == 'group'
+          ? null
+          : other != null
+              ? other['avatar_url'] as String?
+              : null,
       lastMessagePreview: lastMessage['content'] as String?,
       lastMessageAt: createdAt,
     );

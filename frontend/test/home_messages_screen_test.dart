@@ -29,7 +29,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('You have no friends yet.'), findsOneWidget);
+    expect(find.textContaining('No conversations match your search.'),
+        findsOneWidget);
   });
 
   testWidgets('renders friend conversations list',
@@ -84,5 +85,44 @@ void main() {
     expect(find.text('Bob'), findsOneWidget);
     expect(find.text('Hey there'), findsOneWidget);
     expect(find.text('What\'s up?'), findsOneWidget);
+  });
+
+  testWidgets('renders group conversations with distinct presentation',
+      (WidgetTester tester) async {
+    final items = <FriendConversationSummary>[
+      FriendConversationSummary(
+        conversationId: 'group-conv-1',
+        displayName: 'Book Club',
+        conversationType: 'group',
+        groupId: 'group-1',
+        groupName: 'Book Club',
+        lastMessagePreview: 'Tonight at 8?',
+        lastMessageAt: DateTime.now(),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          messagesFriendsProvider.overrideWith(
+            (ref) async => <FriendSummary>[],
+          ),
+          friendConversationsProvider.overrideWith(
+            (ref) async => items,
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: HomeMessagesScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Book Club'), findsOneWidget);
+    expect(find.text('Tonight at 8?'), findsOneWidget);
+    expect(find.byIcon(Icons.groups), findsOneWidget);
   });
 }

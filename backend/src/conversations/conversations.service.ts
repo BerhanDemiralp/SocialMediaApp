@@ -21,6 +21,7 @@ export class ConversationsService {
 
     const conversations = await this.prisma.conversations.findMany({
       where: {
+        deleted_at: null,
         ...(type && { type }),
         participants: {
           some: { user_id: userId },
@@ -39,9 +40,11 @@ export class ConversationsService {
           },
         },
         messages: {
+          where: { deleted_at: null },
           orderBy: { created_at: 'desc' },
           take: 1,
         },
+        group: true,
       },
     });
 
@@ -73,22 +76,19 @@ export class ConversationsService {
       where: { id: conversationId },
       include: {
         participants: true,
+        group: {
+          include: {
+            members: true,
+          },
+        },
       },
     });
 
-    if (!conversation) {
+    if (!conversation || conversation.deleted_at) {
       throw new NotFoundException('Conversation not found');
     }
 
-    const isParticipant = conversation.participants.some(
-      (p) => p.user_id === userId,
-    );
-
-    if (!isParticipant) {
-      throw new ForbiddenException(
-        'You are not allowed to send messages in this conversation',
-      );
-    }
+    this.assertCanAccessConversation(conversation, userId);
 
     // For friend conversations, enforce that users are still friends
     // to keep chats read-only after a friendship is removed.
@@ -118,12 +118,24 @@ export class ConversationsService {
       }
     }
 
-    const message = await this.prisma.messages.create({
-      data: {
-        conversation_id: conversation.id,
-        sender_id: userId,
-        content: content.trim(),
-      },
+    const message = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.messages.create({
+        data: {
+          conversation_id: conversation.id,
+          sender_id: userId,
+          content: content.trim(),
+        },
+        include: {
+          sender: true,
+        },
+      });
+
+      await tx.conversations.update({
+        where: { id: conversation.id },
+        data: { updated_at: new Date() },
+      });
+
+      return created;
     });
 
     return message;
@@ -197,9 +209,11 @@ export class ConversationsService {
             },
           },
           messages: {
+            where: { deleted_at: null },
             orderBy: { created_at: 'desc' },
             take: 1,
           },
+          group: true,
         },
       });
 
@@ -220,27 +234,27 @@ export class ConversationsService {
       where: { id: conversationId },
       include: {
         participants: true,
+        group: {
+          include: {
+            members: true,
+          },
+        },
       },
     });
 
-    if (!conversation) {
+    if (!conversation || conversation.deleted_at) {
       throw new NotFoundException('Conversation not found');
     }
 
-    const isParticipant = conversation.participants.some(
-      (p) => p.user_id === userId,
-    );
-
-    if (!isParticipant) {
-      throw new ForbiddenException(
-        'You are not allowed to view messages for this conversation',
-      );
-    }
+    this.assertCanAccessConversation(conversation, userId);
 
     const take = limit && limit > 0 ? limit : 50;
 
     const messages = await this.prisma.messages.findMany({
-      where: { conversation_id: conversationId },
+      where: { conversation_id: conversationId, deleted_at: null },
+      include: {
+        sender: true,
+      },
       orderBy: { created_at: 'desc' },
       take,
       skip: cursor ? 1 : 0,
@@ -256,6 +270,63 @@ export class ConversationsService {
     };
   }
 
+  async assertUserCanAccessConversation(conversationId: string, userId: string) {
+    const conversation = await this.prisma.conversations.findUnique({
+      where: { id: conversationId },
+      include: {
+        participants: true,
+        group: {
+          include: {
+            members: true,
+          },
+        },
+      },
+    });
+
+    if (!conversation || conversation.deleted_at) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    this.assertCanAccessConversation(conversation, userId);
+  }
+
+  private assertCanAccessConversation(
+    conversation: {
+      type: ConversationType;
+      participants: { user_id: string }[];
+      group?: {
+        deleted_at: Date | null;
+        members: { user_id: string }[];
+      } | null;
+    },
+    userId: string,
+  ) {
+    if (conversation.type === ConversationType.group) {
+      const isCurrentGroupMember =
+        !!conversation.group &&
+        !conversation.group.deleted_at &&
+        conversation.group.members.some((member) => member.user_id === userId);
+
+      if (!isCurrentGroupMember) {
+        throw new ForbiddenException(
+          'You are not allowed to access this group chat',
+        );
+      }
+
+      return;
+    }
+
+    const isParticipant = conversation.participants.some(
+      (p) => p.user_id === userId,
+    );
+
+    if (!isParticipant) {
+      throw new ForbiddenException(
+        'You are not allowed to access this conversation',
+      );
+    }
+  }
+
   private mapConversationToSummary(conversation: {
     id: string;
     type: ConversationType;
@@ -264,6 +335,7 @@ export class ConversationsService {
       user: { id: string; username: string; avatar_url: string | null };
     }[];
     messages: { id: string; content: string; created_at: Date }[];
+    group?: { id: string; name: string } | null;
   }) {
     const lastMessage = conversation.messages[0] ?? null;
 
@@ -276,8 +348,10 @@ export class ConversationsService {
     return {
       id: conversation.id,
       type: conversation.type,
-      title: conversation.title,
+      title: conversation.group?.name ?? conversation.title,
       friendMatchId: null,
+      groupId: conversation.group?.id ?? null,
+      groupName: conversation.group?.name ?? null,
       participants,
       lastMessage: lastMessage
         ? {

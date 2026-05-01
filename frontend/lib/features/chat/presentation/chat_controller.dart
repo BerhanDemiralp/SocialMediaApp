@@ -53,12 +53,15 @@ class ConversationChatController extends StateNotifier<ChatState> {
         conversationId: _conversationId,
         limit: 50,
       );
-      state = state.copyWith(messages: initialMessages, isLoading: false);
+      state = state.copyWith(
+        messages: _sortMessages(initialMessages),
+        isLoading: false,
+      );
 
       _subscription = _repository.messageStream.listen((message) {
         if (message.conversationId == _conversationId) {
           state = state.copyWith(
-            messages: [...state.messages, message],
+            messages: _sortMessages([...state.messages, message]),
           );
         }
       });
@@ -79,11 +82,20 @@ class ConversationChatController extends StateNotifier<ChatState> {
         content: content.trim(),
       );
       state = state.copyWith(
-        messages: [...state.messages, message],
+        messages: _sortMessages([...state.messages, message]),
       );
     } catch (_) {
       state = state.copyWith(error: 'Failed to send message.');
     }
+  }
+
+  List<ChatMessage> _sortMessages(List<ChatMessage> messages) {
+    final sorted = [...messages];
+    sorted.sort((a, b) {
+      final byTime = a.createdAt.compareTo(b.createdAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+    return sorted;
   }
 
   @override
@@ -101,6 +113,10 @@ final conversationChatControllerProvider =
   return ConversationChatController(repository, conversationId);
 });
 
-final currentUserIdProvider = Provider<String?>((ref) {
-  return Supabase.instance.client.auth.currentUser?.id;
+final currentUserIdProvider = StreamProvider<String?>((ref) async* {
+  final client = Supabase.instance.client;
+  yield client.auth.currentUser?.id;
+  await for (final event in client.auth.onAuthStateChange) {
+    yield event.session?.user.id;
+  }
 });

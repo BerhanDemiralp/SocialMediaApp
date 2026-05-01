@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/supabase/supabase_init.dart';
-import 'auth_gate.dart';
+import '../data/auth_repository.dart';
 
 class RegistrationState {
   final String email;

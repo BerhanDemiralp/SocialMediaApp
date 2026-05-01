@@ -11,6 +11,7 @@ import { ConversationType } from '@prisma/client';
 describe('ConversationsService', () => {
   let service: ConversationsService;
   let prisma: {
+    $transaction: jest.Mock;
     conversations: {
       findMany: jest.Mock;
       findUnique: jest.Mock;
@@ -18,13 +19,19 @@ describe('ConversationsService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
-    messages: { findMany: jest.Mock };
+    messages: { findMany: jest.Mock; create: jest.Mock };
     friendships: { findFirst: jest.Mock };
     matches: { create: jest.Mock };
   };
 
   beforeEach(async () => {
     prisma = {
+      $transaction: jest.fn(async (callback) =>
+        callback({
+          messages: prisma.messages,
+          conversations: prisma.conversations,
+        }),
+      ),
       conversations: {
         findMany: jest.fn(),
         findUnique: jest.fn(),
@@ -34,6 +41,7 @@ describe('ConversationsService', () => {
       },
       messages: {
         findMany: jest.fn(),
+        create: jest.fn(),
       },
       friendships: {
         findFirst: jest.fn(),
@@ -61,10 +69,10 @@ describe('ConversationsService', () => {
     prisma.conversations.findMany.mockResolvedValue([
       {
         id: 'conv-1',
-        friend_match_id: 'match-1',
         type: 'friend',
         title: null,
         updated_at: now,
+        group: null,
         participants: [
           {
             user_id: 'user-1',
@@ -93,7 +101,9 @@ describe('ConversationsService', () => {
       id: 'conv-1',
       type: 'friend',
       title: null,
-      friendMatchId: 'match-1',
+      friendMatchId: null,
+      groupId: null,
+      groupName: null,
       participants: [
         { id: 'user-1', username: 'u1', avatar_url: null },
         { id: 'user-2', username: 'u2', avatar_url: 'a2' },
@@ -135,7 +145,10 @@ describe('ConversationsService', () => {
   it('throws Forbidden when user is not a participant', async () => {
     prisma.conversations.findUnique.mockResolvedValue({
       id: 'conv-1',
+      type: ConversationType.friend,
+      deleted_at: null,
       participants: [{ user_id: 'other-user' }],
+      group: null,
     });
 
     await expect(
@@ -148,7 +161,10 @@ describe('ConversationsService', () => {
     const now = new Date();
     prisma.conversations.findUnique.mockResolvedValue({
       id: 'conv-1',
+      type: ConversationType.friend,
+      deleted_at: null,
       participants: [{ user_id: 'user-1' }],
+      group: null,
     });
     prisma.messages.findMany.mockResolvedValue([
       {
@@ -198,7 +214,7 @@ describe('ConversationsService', () => {
       id: 'conv-1',
       type: ConversationType.friend,
       title: null,
-      friend_match_id: 'match-1',
+      group: null,
       participants: [
         {
           user: { id: 'user-1', username: 'u1', avatar_url: null },
@@ -218,7 +234,9 @@ describe('ConversationsService', () => {
       id: 'conv-1',
       type: ConversationType.friend,
       title: null,
-      friendMatchId: 'match-1',
+      friendMatchId: null,
+      groupId: null,
+      groupName: null,
       participants: [
         { id: 'user-1', username: 'u1', avatar_url: null },
         { id: 'user-2', username: 'u2', avatar_url: 'a2' },
@@ -237,14 +255,13 @@ describe('ConversationsService', () => {
 
     prisma.conversations.findFirst.mockResolvedValueOnce({
       id: 'conv-1',
-      friend_match_id: 'match-1',
     });
 
     prisma.conversations.findUnique.mockResolvedValue({
       id: 'conv-1',
       type: ConversationType.friend,
       title: null,
-      friend_match_id: 'match-1',
+      group: null,
       participants: [
         {
           user: { id: 'user-1', username: 'u1', avatar_url: null },
@@ -275,5 +292,101 @@ describe('ConversationsService', () => {
     await expect(
       service.ensureFriendConversationBetweenUsers('user-1', 'user-1'),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('maps group conversations with group metadata', async () => {
+    const now = new Date();
+    prisma.conversations.findMany.mockResolvedValue([
+      {
+        id: 'group-conv-1',
+        type: ConversationType.group,
+        title: 'Fallback title',
+        group: { id: 'group-1', name: 'Book Club' },
+        participants: [
+          {
+            user: { id: 'user-1', username: 'u1', avatar_url: null },
+          },
+        ],
+        messages: [
+          {
+            id: 'msg-1',
+            content: 'hello group',
+            created_at: now,
+          },
+        ],
+      },
+    ]);
+
+    const result = await service.listConversationsForUser('user-1', 10);
+
+    expect(result.items[0]).toMatchObject({
+      id: 'group-conv-1',
+      type: ConversationType.group,
+      title: 'Book Club',
+      groupId: 'group-1',
+      groupName: 'Book Club',
+      lastMessage: {
+        id: 'msg-1',
+        content: 'hello group',
+        created_at: now,
+      },
+    });
+  });
+
+  it('allows current group members to send group chat messages', async () => {
+    const now = new Date();
+    prisma.conversations.findUnique.mockResolvedValue({
+      id: 'group-conv-1',
+      type: ConversationType.group,
+      deleted_at: null,
+      participants: [],
+      group: {
+        deleted_at: null,
+        members: [{ user_id: 'user-1' }],
+      },
+    });
+    prisma.messages.create.mockResolvedValue({
+      id: 'msg-1',
+      conversation_id: 'group-conv-1',
+      sender_id: 'user-1',
+      content: 'hello',
+      created_at: now,
+    });
+
+    const result = await service.createMessageForConversation(
+      'group-conv-1',
+      'user-1',
+      ' hello ',
+    );
+
+    expect(prisma.messages.create).toHaveBeenCalledWith({
+      data: {
+        conversation_id: 'group-conv-1',
+        sender_id: 'user-1',
+        content: 'hello',
+      },
+      include: {
+        sender: true,
+      },
+    });
+    expect(result.content).toBe('hello');
+  });
+
+  it('rejects former group members from group chat messages', async () => {
+    prisma.conversations.findUnique.mockResolvedValue({
+      id: 'group-conv-1',
+      type: ConversationType.group,
+      deleted_at: null,
+      participants: [],
+      group: {
+        deleted_at: null,
+        members: [{ user_id: 'other-user' }],
+      },
+    });
+
+    await expect(
+      service.createMessageForConversation('group-conv-1', 'user-1', 'hello'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.messages.create).not.toHaveBeenCalled();
   });
 });

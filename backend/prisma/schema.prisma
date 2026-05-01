@@ -9,6 +9,7 @@ datasource db {
 enum ConversationType {
   friend
   group_pair
+  group
 }
 
 model users {
@@ -43,14 +44,17 @@ model friendships {
 }
 
 model groups {
-  id          String   @id @default(uuid())
-  name        String
-  invite_code String   @unique
-  created_by  String
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id              String    @id @default(uuid())
+  name            String
+  invite_code     String    @unique
+  created_by      String
+  conversation_id String?   @unique
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  deleted_at      DateTime?
 
-  members group_members[]
+  members           group_members[]
+  chat_conversation conversations?  @relation("GroupChatConversation", fields: [conversation_id], references: [id])
 }
 
 model group_members {
@@ -71,6 +75,7 @@ model messages {
   sender_id       String
   content         String
   created_at      DateTime @default(now())
+  deleted_at      DateTime?
 
   conversation conversations @relation(fields: [conversation_id], references: [id])
   sender       users         @relation(fields: [sender_id], references: [id])
@@ -114,9 +119,11 @@ model conversations {
   title      String?
   created_at DateTime         @default(now())
   updated_at DateTime         @updatedAt
+  deleted_at DateTime?
 
   participants conversation_participants[]
   messages     messages[]
+  group        groups?                     @relation("GroupChatConversation")
 }
 
 model conversation_participants {

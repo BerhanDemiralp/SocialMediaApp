@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -59,6 +60,20 @@ export class GroupsController {
     }
 
     return this.groupsService.leaveGroup(userId, groupId);
+  }
+
+  @Delete(':groupId')
+  async deleteGroup(
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Param('groupId') groupId: string,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    return this.groupsService.deleteGroup(userId, groupId);
   }
 
   @Get(':groupId/members')

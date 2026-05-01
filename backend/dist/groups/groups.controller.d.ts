@@ -13,6 +13,7 @@ export declare class GroupsController {
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }>;
     joinGroup(req: ExpressRequest & {
         user?: {
@@ -22,8 +23,16 @@ export declare class GroupsController {
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }>;
     leaveGroup(req: ExpressRequest & {
+        user?: {
+            id: string;
+        };
+    }, groupId: string): Promise<{
+        success: boolean;
+    }>;
+    deleteGroup(req: ExpressRequest & {
         user?: {
             id: string;
         };
@@ -48,5 +57,6 @@ export declare class GroupsController {
         id: string;
         name: string;
         invite_code: string;
+        conversation_id: string | null;
     }[]>;
 }

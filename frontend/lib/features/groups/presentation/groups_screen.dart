@@ -55,6 +55,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             groupId: group.id,
             groupName: group.name,
             inviteCode: group.inviteCode,
+            groupConversationId: group.conversationId,
           ),
         ),
       );

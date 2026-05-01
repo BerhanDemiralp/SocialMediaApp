@@ -7,6 +7,8 @@ export declare class GroupsRepository {
         created_at: Date;
         updated_at: Date;
         name: string;
+        deleted_at: Date | null;
+        conversation_id: string | null;
         invite_code: string;
         created_by: string;
     }>;
@@ -15,6 +17,8 @@ export declare class GroupsRepository {
         created_at: Date;
         updated_at: Date;
         name: string;
+        deleted_at: Date | null;
+        conversation_id: string | null;
         invite_code: string;
         created_by: string;
     } | null>;
@@ -25,6 +29,17 @@ export declare class GroupsRepository {
         user_id: string;
     } | null>;
     addMemberToGroup(userId: string, groupId: string): Promise<{
+        group: {
+            id: string;
+            created_at: Date;
+            updated_at: Date;
+            name: string;
+            deleted_at: Date | null;
+            conversation_id: string | null;
+            invite_code: string;
+            created_by: string;
+        };
+    } & {
         id: string;
         joined_at: Date;
         group_id: string;
@@ -41,6 +56,8 @@ export declare class GroupsRepository {
         created_at: Date;
         updated_at: Date;
         name: string;
+        deleted_at: Date | null;
+        conversation_id: string | null;
         invite_code: string;
         created_by: string;
     }[]>;
@@ -52,4 +69,24 @@ export declare class GroupsRepository {
         created_at: Date;
         updated_at: Date;
     }[]>;
+    findGroupById(groupId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        name: string;
+        deleted_at: Date | null;
+        conversation_id: string | null;
+        invite_code: string;
+        created_by: string;
+    } | null>;
+    deleteGroupWithChat(groupId: string): Promise<{
+        id: string;
+        created_at: Date;
+        updated_at: Date;
+        name: string;
+        deleted_at: Date | null;
+        conversation_id: string | null;
+        invite_code: string;
+        created_by: string;
+    } | null>;
 }

@@ -10,11 +10,13 @@ class GroupSummary {
     required this.id,
     required this.name,
     required this.inviteCode,
+    this.conversationId,
   });
 
   final String id;
   final String name;
   final String inviteCode;
+  final String? conversationId;
 }
 
 class GroupsApiClient {
@@ -185,6 +187,7 @@ class GroupsApiClient {
       id: map['id'] as String,
       name: map['name'] as String? ?? '',
       inviteCode: map['invite_code'] as String? ?? '',
+      conversationId: map['conversation_id'] as String?,
     );
   }
 }

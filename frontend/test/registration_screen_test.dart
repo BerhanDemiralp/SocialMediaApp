@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:moment_app/features/auth/data/auth_repository.dart';
-import 'package:moment_app/features/auth/presentation/auth_gate.dart';
 import 'package:moment_app/features/auth/presentation/registration_screen.dart';
 import 'package:moment_app/core/auth/auth_state.dart';
 import 'package:moment_app/core/analytics/app_analytics.dart';
@@ -34,6 +33,11 @@ class _FakeAuthRepository implements AuthRepository {
 
   @override
   Future<void> signOut() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> syncCurrentUser() {
     throw UnimplementedError();
   }
 }

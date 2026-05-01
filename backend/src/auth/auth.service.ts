@@ -71,20 +71,11 @@ export class AuthService {
     });
 
     if (!user) {
-      // If the user exists in Supabase but not yet in our Postgres `users` table,
-      // create a local user record on first login.
-      const fallbackUsername =
-        (data.user.user_metadata as Record<string, unknown> | null)?.[
-          'username'
-        ]?.toString() ??
-        data.user.email?.split('@')[0] ??
-        `user-${data.user.id.slice(0, 8)}`;
-
       user = await this.prismaService.users.create({
         data: {
           id: data.user.id,
           email: data.user.email ?? '',
-          username: fallbackUsername,
+          username: await this.buildAvailableFallbackUsername(data.user),
         },
       });
     }
@@ -130,18 +121,11 @@ export class AuthService {
     });
 
     if (!user) {
-      const fallbackUsername =
-        (supaUser.user_metadata as Record<string, unknown> | null)?.[
-          'username'
-        ]?.toString() ??
-        supaUser.email?.split('@')[0] ??
-        `user-${supaUser.id.slice(0, 8)}`;
-
       user = await this.prismaService.users.create({
         data: {
           id: supaUser.id,
           email: supaUser.email ?? '',
-          username: fallbackUsername,
+          username: await this.buildAvailableFallbackUsername(supaUser),
         },
       });
     }
@@ -153,5 +137,38 @@ export class AuthService {
       username: user.username,
       avatar_url: user.avatar_url,
     };
+  }
+
+  private async buildAvailableFallbackUsername(user: {
+    id: string;
+    email?: string | null;
+    user_metadata?: Record<string, unknown> | null;
+  }) {
+    const base = this.buildFallbackUsernameBase(user);
+    const existing = await this.prismaService.users.findUnique({
+      where: { username: base },
+    });
+
+    if (!existing) {
+      return base;
+    }
+
+    return `${base}_${user.id.slice(0, 6)}`;
+  }
+
+  private buildFallbackUsernameBase(user: {
+    email?: string | null;
+    user_metadata?: Record<string, unknown> | null;
+  }) {
+    const rawBase =
+      user.user_metadata?.['username']?.toString() ?? user.email?.split('@')[0] ?? 'user';
+    const base = rawBase
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 24);
+
+    return base || 'user';
   }
 }

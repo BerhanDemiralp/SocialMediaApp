@@ -51,6 +51,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final conversationId = state.pathParameters['conversationId']!;
           return ChatScreen(
             conversationId: conversationId,
+            isGroup: state.uri.queryParameters['type'] == 'group',
+            title: state.uri.queryParameters['title'],
           );
         },
       ),

@@ -32,4 +32,6 @@ export declare class AuthService {
         username: string;
         avatar_url: string | null;
     }>;
+    private buildAvailableFallbackUsername;
+    private buildFallbackUsernameBase;
 }

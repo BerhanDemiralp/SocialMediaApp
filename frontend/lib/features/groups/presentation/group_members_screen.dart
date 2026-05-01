@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/groups_repository.dart';
 import '../data/groups_api_client.dart';
@@ -10,6 +11,7 @@ import '../../home/data/home_friends_repository.dart';
 import '../../home/data/home_messaging_repository.dart';
 import '../../../core/analytics/app_analytics.dart';
 import '../../home/presentation/home_friends_screen.dart';
+import '../../home/presentation/home_messages_screen.dart';
 
 /// Loads members for a given group id via Riverpod so we don't
 /// recreate the Future on every rebuild.
@@ -25,11 +27,13 @@ class GroupMembersScreen extends ConsumerWidget {
     required this.groupId,
     required this.groupName,
     required this.inviteCode,
+    this.groupConversationId,
   });
 
   final String groupId;
   final String groupName;
   final String inviteCode;
+  final String? groupConversationId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,6 +60,22 @@ class GroupMembersScreen extends ConsumerWidget {
             color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: 12),
+          FilledButton.tonal(
+            onPressed: groupConversationId == null
+                ? null
+                : () {
+                    final route = Uri(
+                      path: '/conversation/$groupConversationId',
+                      queryParameters: {
+                        'type': 'group',
+                        'title': groupName,
+                      },
+                    ).toString();
+                    context.push(route);
+                  },
+            child: const Text('Open group chat'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.tonal(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: inviteCode));
@@ -118,6 +138,7 @@ class GroupMembersScreen extends ConsumerWidget {
                               onPressed: () async {
                                 try {
                                   await groupsController.leaveGroup(groupId);
+                                  ref.invalidate(friendConversationsProvider);
                                   if (context.mounted) {
                                     Navigator.of(context).pop();
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -262,4 +283,3 @@ class GroupMembersScreen extends ConsumerWidget {
     );
   }
 }
-

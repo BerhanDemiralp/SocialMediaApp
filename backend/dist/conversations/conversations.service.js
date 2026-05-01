@@ -22,6 +22,7 @@ let ConversationsService = class ConversationsService {
         const take = limit && limit > 0 ? limit : 20;
         const conversations = await this.prisma.conversations.findMany({
             where: {
+                deleted_at: null,
                 ...(type && { type }),
                 participants: {
                     some: { user_id: userId },
@@ -40,9 +41,11 @@ let ConversationsService = class ConversationsService {
                     },
                 },
                 messages: {
+                    where: { deleted_at: null },
                     orderBy: { created_at: 'desc' },
                     take: 1,
                 },
+                group: true,
             },
         });
         const items = conversations.map((conversation) => this.mapConversationToSummary(conversation));
@@ -62,15 +65,17 @@ let ConversationsService = class ConversationsService {
             where: { id: conversationId },
             include: {
                 participants: true,
+                group: {
+                    include: {
+                        members: true,
+                    },
+                },
             },
         });
-        if (!conversation) {
+        if (!conversation || conversation.deleted_at) {
             throw new common_1.NotFoundException('Conversation not found');
         }
-        const isParticipant = conversation.participants.some((p) => p.user_id === userId);
-        if (!isParticipant) {
-            throw new common_1.ForbiddenException('You are not allowed to send messages in this conversation');
-        }
+        this.assertCanAccessConversation(conversation, userId);
         if (conversation.type === client_1.ConversationType.friend) {
             const participantIds = conversation.participants
                 .map((p) => p.user_id)
@@ -91,12 +96,22 @@ let ConversationsService = class ConversationsService {
                 }
             }
         }
-        const message = await this.prisma.messages.create({
-            data: {
-                conversation_id: conversation.id,
-                sender_id: userId,
-                content: content.trim(),
-            },
+        const message = await this.prisma.$transaction(async (tx) => {
+            const created = await tx.messages.create({
+                data: {
+                    conversation_id: conversation.id,
+                    sender_id: userId,
+                    content: content.trim(),
+                },
+                include: {
+                    sender: true,
+                },
+            });
+            await tx.conversations.update({
+                where: { id: conversation.id },
+                data: { updated_at: new Date() },
+            });
+            return created;
         });
         return message;
     }
@@ -153,9 +168,11 @@ let ConversationsService = class ConversationsService {
                     },
                 },
                 messages: {
+                    where: { deleted_at: null },
                     orderBy: { created_at: 'desc' },
                     take: 1,
                 },
+                group: true,
             },
         });
         if (!conversationWithRelations) {
@@ -168,18 +185,23 @@ let ConversationsService = class ConversationsService {
             where: { id: conversationId },
             include: {
                 participants: true,
+                group: {
+                    include: {
+                        members: true,
+                    },
+                },
             },
         });
-        if (!conversation) {
+        if (!conversation || conversation.deleted_at) {
             throw new common_1.NotFoundException('Conversation not found');
         }
-        const isParticipant = conversation.participants.some((p) => p.user_id === userId);
-        if (!isParticipant) {
-            throw new common_1.ForbiddenException('You are not allowed to view messages for this conversation');
-        }
+        this.assertCanAccessConversation(conversation, userId);
         const take = limit && limit > 0 ? limit : 50;
         const messages = await this.prisma.messages.findMany({
-            where: { conversation_id: conversationId },
+            where: { conversation_id: conversationId, deleted_at: null },
+            include: {
+                sender: true,
+            },
             orderBy: { created_at: 'desc' },
             take,
             skip: cursor ? 1 : 0,
@@ -191,6 +213,38 @@ let ConversationsService = class ConversationsService {
             nextCursor,
         };
     }
+    async assertUserCanAccessConversation(conversationId, userId) {
+        const conversation = await this.prisma.conversations.findUnique({
+            where: { id: conversationId },
+            include: {
+                participants: true,
+                group: {
+                    include: {
+                        members: true,
+                    },
+                },
+            },
+        });
+        if (!conversation || conversation.deleted_at) {
+            throw new common_1.NotFoundException('Conversation not found');
+        }
+        this.assertCanAccessConversation(conversation, userId);
+    }
+    assertCanAccessConversation(conversation, userId) {
+        if (conversation.type === client_1.ConversationType.group) {
+            const isCurrentGroupMember = !!conversation.group &&
+                !conversation.group.deleted_at &&
+                conversation.group.members.some((member) => member.user_id === userId);
+            if (!isCurrentGroupMember) {
+                throw new common_1.ForbiddenException('You are not allowed to access this group chat');
+            }
+            return;
+        }
+        const isParticipant = conversation.participants.some((p) => p.user_id === userId);
+        if (!isParticipant) {
+            throw new common_1.ForbiddenException('You are not allowed to access this conversation');
+        }
+    }
     mapConversationToSummary(conversation) {
         const lastMessage = conversation.messages[0] ?? null;
         const participants = conversation.participants.map((p) => ({
@@ -201,8 +255,10 @@ let ConversationsService = class ConversationsService {
         return {
             id: conversation.id,
             type: conversation.type,
-            title: conversation.title,
+            title: conversation.group?.name ?? conversation.title,
             friendMatchId: null,
+            groupId: conversation.group?.id ?? null,
+            groupName: conversation.group?.name ?? null,
             participants,
             lastMessage: lastMessage
                 ? {

@@ -222,8 +222,50 @@ describe('AuthService', () => {
 
       const result = await service.login(loginDto as any);
 
-      expect(prismaService.users.create).toHaveBeenCalled();
+      expect(prismaService.users.create).toHaveBeenCalledWith({
+        data: {
+          id: 'user-id',
+          email: loginDto.email,
+          username: 'testuser',
+        },
+      });
       expect(result.user.id).toBe('user-id');
+    });
+
+    it('adds a suffix to fallback username only when it is already taken', async () => {
+      const loginDto = { email: 'taken@example.com', password: 'password123' };
+
+      const supabaseUser = {
+        id: 'abcdef12-3456-7890',
+        email: loginDto.email,
+        user_metadata: {},
+      };
+      const supabaseSession = { access_token: 'token' };
+
+      supabaseService.client.auth.signInWithPassword.mockResolvedValue({
+        data: { user: supabaseUser, session: supabaseSession },
+        error: null,
+      });
+
+      prismaService.users.findUnique
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: 'other-user', username: 'taken' });
+      prismaService.users.create.mockResolvedValue({
+        id: supabaseUser.id,
+        email: loginDto.email,
+        username: 'taken_abcdef',
+        avatar_url: null,
+      });
+
+      await service.login(loginDto as any);
+
+      expect(prismaService.users.create).toHaveBeenCalledWith({
+        data: {
+          id: supabaseUser.id,
+          email: loginDto.email,
+          username: 'taken_abcdef',
+        },
+      });
     });
   });
 
