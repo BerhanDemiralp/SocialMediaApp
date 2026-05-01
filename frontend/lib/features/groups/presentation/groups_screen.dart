@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/groups_api_client.dart';
 import 'groups_controller.dart';
 import 'group_members_screen.dart';
 
@@ -45,6 +46,58 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showSnack(state.error!);
       });
+    }
+
+    void openGroup(GroupSummary group) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GroupMembersScreen(
+            groupId: group.id,
+            groupName: group.name,
+            inviteCode: group.inviteCode,
+          ),
+        ),
+      );
+    }
+
+    Future<void> createGroup() async {
+      final name = _nameController.text.trim();
+      if (name.isEmpty) return;
+
+      final shouldCreate = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Create group?'),
+          content: Text('Create "$name" as a new group?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldCreate != true) return;
+
+      _nameController.clear();
+      final group = await controller.createGroup(name);
+      if (!context.mounted || group == null) return;
+      openGroup(group);
+    }
+
+    Future<void> joinGroup() async {
+      final code = _codeController.text.trim();
+      if (code.isEmpty) return;
+
+      _codeController.clear();
+      final group = await controller.joinGroup(code);
+      if (!context.mounted || group == null) return;
+      openGroup(group);
     }
 
     return DefaultTabController(
@@ -97,17 +150,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         ...state.groups.map(
                           (group) => Card(
                             child: ListTile(
-                              onTap: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => GroupMembersScreen(
-                                      groupId: group.id,
-                                      groupName: group.name,
-                                      inviteCode: group.inviteCode,
-                                    ),
-                                  ),
-                                );
-                              },
+                              onTap: () => openGroup(group),
                               title: Text(group.name),
                               trailing: const Icon(Icons.chevron_right),
                             ),
@@ -127,11 +170,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     labelText: 'Create group',
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.add),
-                      onPressed: () {
-                        final name = _nameController.text;
-                        _nameController.clear();
-                        controller.createGroup(name);
-                      },
+                      onPressed: createGroup,
                     ),
                   ),
                 ),
@@ -142,11 +181,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                     labelText: 'Join with invite code',
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.login),
-                      onPressed: () {
-                        final code = _codeController.text;
-                        _codeController.clear();
-                        controller.joinGroup(code);
-                      },
+                      onPressed: joinGroup,
                     ),
                   ),
                 ),

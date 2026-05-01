@@ -52,25 +52,29 @@ class GroupsController extends StateNotifier<GroupsState> {
     }
   }
 
-  Future<void> createGroup(String name) async {
-    if (name.trim().isEmpty) return;
+  Future<GroupSummary?> createGroup(String name) async {
+    if (name.trim().isEmpty) return null;
 
     try {
-      await _repository.createGroup(name.trim());
+      final group = await _repository.createGroup(name.trim());
       await loadGroups();
+      return group;
     } catch (_) {
       state = state.copyWith(error: 'Failed to create group.');
+      return null;
     }
   }
 
-  Future<void> joinGroup(String inviteCode) async {
-    if (inviteCode.trim().isEmpty) return;
+  Future<GroupSummary?> joinGroup(String inviteCode) async {
+    if (inviteCode.trim().isEmpty) return null;
 
     try {
-      await _repository.joinGroup(inviteCode.trim());
+      final group = await _repository.joinGroup(inviteCode.trim());
       await loadGroups();
+      return group;
     } catch (_) {
       state = state.copyWith(error: 'Failed to join group.');
+      return null;
     }
   }
 
