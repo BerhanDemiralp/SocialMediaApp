@@ -18,6 +18,7 @@ const pool = new Pool({
 });
 
 const adapter = new PrismaPg(pool);
+const enableTimingLogs = process.env.ENABLE_TEMP_TIMING_LOGS !== '0';
 
 @Injectable()
 export class PrismaService
@@ -25,7 +26,21 @@ export class PrismaService
   implements OnModuleInit, OnModuleDestroy
 {
   constructor() {
-    super({ adapter });
+    super({
+      adapter,
+      log: enableTimingLogs ? [{ emit: 'event', level: 'query' }] : [],
+    });
+
+    if (enableTimingLogs) {
+      (this as any).$on('query', (event: {
+        duration: number;
+        query: string;
+        target?: string;
+      }) => {
+        const target = event.target ? ` ${event.target}` : '';
+        console.warn(`[db-time] ${event.duration}ms${target} ${event.query}`);
+      });
+    }
   }
 
   async onModuleInit() {

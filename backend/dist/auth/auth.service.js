@@ -16,6 +16,7 @@ const prisma_service_1 = require("../prisma/prisma.service");
 let AuthService = class AuthService {
     supabaseService;
     prismaService;
+    tokenCache = new Map();
     constructor(supabaseService, prismaService) {
         this.supabaseService = supabaseService;
         this.prismaService = prismaService;
@@ -90,7 +91,14 @@ let AuthService = class AuthService {
         return { message: 'Logged out successfully' };
     }
     async validateToken(token) {
+        const cached = this.tokenCache.get(token);
+        const now = Date.now();
+        if (cached && cached.expiresAt > now) {
+            this.logTiming('auth.validateToken.cache', now);
+            return cached.user;
+        }
         const { data, error } = await this.supabaseService.client.auth.getUser(token);
+        this.logTiming('auth.validateToken.supabase.getUser', now);
         if (error) {
             throw new common_1.UnauthorizedException(error.message);
         }
@@ -110,12 +118,41 @@ let AuthService = class AuthService {
                 },
             });
         }
-        return {
+        const validatedUser = {
             id: user.id,
             email: user.email,
             username: user.username,
             avatar_url: user.avatar_url,
         };
+        this.tokenCache.set(token, {
+            user: validatedUser,
+            expiresAt: now + this.getTokenCacheTtlMs(token),
+        });
+        return validatedUser;
+    }
+    getTokenCacheTtlMs(token) {
+        const maxTtlMs = 60_000;
+        try {
+            const payloadPart = token.split('.')[1];
+            if (!payloadPart) {
+                return maxTtlMs;
+            }
+            const payload = JSON.parse(Buffer.from(payloadPart, 'base64url').toString('utf8'));
+            if (!payload.exp) {
+                return maxTtlMs;
+            }
+            const tokenTtlMs = payload.exp * 1000 - Date.now();
+            return Math.max(0, Math.min(maxTtlMs, tokenTtlMs));
+        }
+        catch {
+            return maxTtlMs;
+        }
+    }
+    logTiming(label, startedAt) {
+        if (process.env.ENABLE_TEMP_TIMING_LOGS === '0') {
+            return;
+        }
+        console.warn(`[auth-time] ${label} ${Date.now() - startedAt}ms`);
     }
     async buildAvailableFallbackUsername(user) {
         const base = this.buildFallbackUsernameBase(user);

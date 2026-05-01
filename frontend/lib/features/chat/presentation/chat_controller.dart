@@ -74,18 +74,43 @@ class ConversationChatController extends StateNotifier<ChatState> {
   }
 
   Future<void> sendMessage(String content) async {
-    if (content.trim().isEmpty) return;
+    final trimmedContent = content.trim();
+    if (trimmedContent.isEmpty) return;
+
+    final optimisticId =
+        'local-${DateTime.now().microsecondsSinceEpoch.toString()}';
+    final optimisticMessage = ChatMessage(
+      id: optimisticId,
+      conversationId: _conversationId,
+      senderId: _repository.currentUserId ?? '',
+      content: trimmedContent,
+      createdAt: DateTime.now(),
+    );
+
+    state = state.copyWith(
+      messages: _sortMessages([...state.messages, optimisticMessage]),
+      error: null,
+    );
 
     try {
       final message = await _repository.sendMessageToConversation(
         conversationId: _conversationId,
-        content: content.trim(),
+        content: trimmedContent,
       );
       state = state.copyWith(
-        messages: _sortMessages([...state.messages, message]),
+        messages: _sortMessages([
+          for (final existing in state.messages)
+            if (existing.id == optimisticId) message else existing,
+        ]),
       );
     } catch (_) {
-      state = state.copyWith(error: 'Failed to send message.');
+      state = state.copyWith(
+        messages: [
+          for (final existing in state.messages)
+            if (existing.id != optimisticId) existing,
+        ],
+        error: 'Failed to send message.',
+      );
     }
   }
 

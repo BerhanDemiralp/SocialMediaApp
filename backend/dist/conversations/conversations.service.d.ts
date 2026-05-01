@@ -80,6 +80,6 @@ export declare class ConversationsService {
         nextCursor: string | null;
     }>;
     assertUserCanAccessConversation(conversationId: string, userId: string): Promise<void>;
-    private assertCanAccessConversation;
+    private getAuthorizedConversation;
     private mapConversationToSummary;
 }

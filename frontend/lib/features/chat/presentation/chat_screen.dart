@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/chat_message.dart';
 import 'chat_controller.dart';
-import '../../home/presentation/home_messages_screen.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -201,8 +200,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 ).notifier,
                               )
                               .sendMessage(text);
-                          // Refresh conversations summaries so Messages tab shows the latest message.
-                          ref.invalidate(friendConversationsProvider);
                         }
                       },
               ),

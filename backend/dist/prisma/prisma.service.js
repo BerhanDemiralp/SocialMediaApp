@@ -57,9 +57,19 @@ const pool = new pg_1.Pool({
     connectionString: databaseUrl,
 });
 const adapter = new adapter_pg_1.PrismaPg(pool);
+const enableTimingLogs = process.env.ENABLE_TEMP_TIMING_LOGS !== '0';
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        super({ adapter });
+        super({
+            adapter,
+            log: enableTimingLogs ? [{ emit: 'event', level: 'query' }] : [],
+        });
+        if (enableTimingLogs) {
+            this.$on('query', (event) => {
+                const target = event.target ? ` ${event.target}` : '';
+                console.warn(`[db-time] ${event.duration}ms${target} ${event.query}`);
+            });
+        }
     }
     async onModuleInit() {
         await this.$connect();

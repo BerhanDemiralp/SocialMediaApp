@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -10,6 +10,7 @@ import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { RequestTimingMiddleware } from './diagnostics/request-timing.middleware';
 
 @Module({
   imports: [
@@ -26,4 +27,8 @@ import { ConversationsModule } from './conversations/conversations.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestTimingMiddleware).forRoutes('*');
+  }
+}

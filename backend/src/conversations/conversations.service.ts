@@ -72,28 +72,19 @@ export class ConversationsService {
       throw new BadRequestException('Message content cannot be empty');
     }
 
-    const conversation = await this.prisma.conversations.findUnique({
-      where: { id: conversationId },
-      include: {
-        participants: true,
-        group: {
-          include: {
-            members: true,
-          },
-        },
-      },
-    });
-
-    if (!conversation || conversation.deleted_at) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    this.assertCanAccessConversation(conversation, userId);
+    const conversation = await this.getAuthorizedConversation(
+      conversationId,
+      userId,
+    );
 
     // For friend conversations, enforce that users are still friends
     // to keep chats read-only after a friendship is removed.
     if (conversation.type === ConversationType.friend) {
-      const participantIds = conversation.participants
+      const participants = await this.prisma.conversation_participants.findMany({
+        where: { conversation_id: conversation.id },
+        select: { user_id: true },
+      });
+      const participantIds = participants
         .map((p) => p.user_id)
         .filter((id, index, arr) => !!id && arr.indexOf(id) === index);
 
@@ -230,23 +221,7 @@ export class ConversationsService {
     limit?: number,
     cursor?: string,
   ) {
-    const conversation = await this.prisma.conversations.findUnique({
-      where: { id: conversationId },
-      include: {
-        participants: true,
-        group: {
-          include: {
-            members: true,
-          },
-        },
-      },
-    });
-
-    if (!conversation || conversation.deleted_at) {
-      throw new NotFoundException('Conversation not found');
-    }
-
-    this.assertCanAccessConversation(conversation, userId);
+    await this.getAuthorizedConversation(conversationId, userId);
 
     const take = limit && limit > 0 ? limit : 50;
 
@@ -271,13 +246,20 @@ export class ConversationsService {
   }
 
   async assertUserCanAccessConversation(conversationId: string, userId: string) {
+    await this.getAuthorizedConversation(conversationId, userId);
+  }
+
+  private async getAuthorizedConversation(conversationId: string, userId: string) {
     const conversation = await this.prisma.conversations.findUnique({
       where: { id: conversationId },
-      include: {
-        participants: true,
+      select: {
+        id: true,
+        type: true,
+        deleted_at: true,
         group: {
-          include: {
-            members: true,
+          select: {
+            id: true,
+            deleted_at: true,
           },
         },
       },
@@ -287,44 +269,49 @@ export class ConversationsService {
       throw new NotFoundException('Conversation not found');
     }
 
-    this.assertCanAccessConversation(conversation, userId);
-  }
-
-  private assertCanAccessConversation(
-    conversation: {
-      type: ConversationType;
-      participants: { user_id: string }[];
-      group?: {
-        deleted_at: Date | null;
-        members: { user_id: string }[];
-      } | null;
-    },
-    userId: string,
-  ) {
     if (conversation.type === ConversationType.group) {
-      const isCurrentGroupMember =
-        !!conversation.group &&
-        !conversation.group.deleted_at &&
-        conversation.group.members.some((member) => member.user_id === userId);
-
-      if (!isCurrentGroupMember) {
+      if (!conversation.group || conversation.group.deleted_at) {
         throw new ForbiddenException(
           'You are not allowed to access this group chat',
         );
       }
 
-      return;
+      const membership = await this.prisma.group_members.findUnique({
+        where: {
+          user_id_group_id: {
+            user_id: userId,
+            group_id: conversation.group.id,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!membership) {
+        throw new ForbiddenException(
+          'You are not allowed to access this group chat',
+        );
+      }
+
+      return conversation;
     }
 
-    const isParticipant = conversation.participants.some(
-      (p) => p.user_id === userId,
-    );
+    const participant = await this.prisma.conversation_participants.findUnique({
+      where: {
+        conversation_id_user_id: {
+          conversation_id: conversation.id,
+          user_id: userId,
+        },
+      },
+      select: { id: true },
+    });
 
-    if (!isParticipant) {
+    if (!participant) {
       throw new ForbiddenException(
         'You are not allowed to access this conversation',
       );
     }
+
+    return conversation;
   }
 
   private mapConversationToSummary(conversation: {

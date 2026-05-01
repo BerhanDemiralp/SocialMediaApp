@@ -41,6 +41,8 @@ model friendships {
   addressee users @relation("FriendshipAddressee", fields: [addressee_id], references: [id])
 
   @@unique([requester_id, addressee_id])
+  @@index([requester_id, status])
+  @@index([addressee_id, status])
 }
 
 model groups {
@@ -67,6 +69,8 @@ model group_members {
   group groups @relation(fields: [group_id], references: [id])
 
   @@unique([user_id, group_id])
+  @@index([group_id])
+  @@index([user_id])
 }
 
 model messages {
@@ -79,6 +83,9 @@ model messages {
 
   conversation conversations @relation(fields: [conversation_id], references: [id])
   sender       users         @relation(fields: [sender_id], references: [id])
+
+  @@index([conversation_id, deleted_at, created_at])
+  @@index([sender_id])
 }
 
 model daily_questions {
@@ -124,6 +131,8 @@ model conversations {
   participants conversation_participants[]
   messages     messages[]
   group        groups?                     @relation("GroupChatConversation")
+
+  @@index([deleted_at, type, updated_at])
 }
 
 model conversation_participants {
@@ -137,4 +146,5 @@ model conversation_participants {
   user         users         @relation(fields: [user_id], references: [id])
 
   @@unique([conversation_id, user_id])
+  @@index([user_id, conversation_id])
 }

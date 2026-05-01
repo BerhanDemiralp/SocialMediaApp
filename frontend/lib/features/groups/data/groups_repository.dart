@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/timing_http_client.dart';
 import 'groups_api_client.dart';
 
 final groupsRepositoryProvider = Provider<GroupsRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
+  final httpClient = TimingHttpClient();
   final apiClient = GroupsApiClient(httpClient, supabaseClient);
 
   ref.onDispose(httpClient.close);

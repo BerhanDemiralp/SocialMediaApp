@@ -19,7 +19,11 @@ const friends_module_1 = require("./friends/friends.module");
 const groups_module_1 = require("./groups/groups.module");
 const daily_questions_module_1 = require("./daily-questions/daily-questions.module");
 const conversations_module_1 = require("./conversations/conversations.module");
+const request_timing_middleware_1 = require("./diagnostics/request-timing.middleware");
 let AppModule = class AppModule {
+    configure(consumer) {
+        consumer.apply(request_timing_middleware_1.RequestTimingMiddleware).forRoutes('*');
+    }
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([

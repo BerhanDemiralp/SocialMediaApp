@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/timing_http_client.dart';
 import 'friend_conversations_api_client.dart';
 
 final homeMessagingRepositoryProvider =
     Provider<HomeMessagingRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
+  final httpClient = TimingHttpClient();
   final apiClient = FriendConversationsApiClient(httpClient, supabaseClient);
 
   ref.onDispose(httpClient.close);

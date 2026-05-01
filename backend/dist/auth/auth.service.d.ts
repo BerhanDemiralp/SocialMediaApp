@@ -5,6 +5,7 @@ import { LoginDto } from './dto/login.dto';
 export declare class AuthService {
     private supabaseService;
     private prismaService;
+    private readonly tokenCache;
     constructor(supabaseService: SupabaseService, prismaService: PrismaService);
     register(registerDto: RegisterDto): Promise<{
         user: {
@@ -32,6 +33,8 @@ export declare class AuthService {
         username: string;
         avatar_url: string | null;
     }>;
+    private getTokenCacheTtlMs;
+    private logTiming;
     private buildAvailableFallbackUsername;
     private buildFallbackUsernameBase;
 }

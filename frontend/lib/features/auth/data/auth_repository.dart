@@ -5,10 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env/app_env.dart';
+import '../../../core/network/timing_http_client.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
+  final httpClient = TimingHttpClient();
 
   ref.onDispose(httpClient.close);
 

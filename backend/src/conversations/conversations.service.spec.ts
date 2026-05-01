@@ -21,6 +21,11 @@ describe('ConversationsService', () => {
     };
     messages: { findMany: jest.Mock; create: jest.Mock };
     friendships: { findFirst: jest.Mock };
+    conversation_participants: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+    };
+    group_members: { findUnique: jest.Mock };
     matches: { create: jest.Mock };
   };
 
@@ -45,6 +50,13 @@ describe('ConversationsService', () => {
       },
       friendships: {
         findFirst: jest.fn(),
+      },
+      conversation_participants: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+      },
+      group_members: {
+        findUnique: jest.fn(),
       },
       matches: {
         create: jest.fn(),
@@ -147,9 +159,9 @@ describe('ConversationsService', () => {
       id: 'conv-1',
       type: ConversationType.friend,
       deleted_at: null,
-      participants: [{ user_id: 'other-user' }],
       group: null,
     });
+    prisma.conversation_participants.findUnique.mockResolvedValue(null);
 
     await expect(
       service.getConversationMessages('conv-1', 'user-1', 10),
@@ -163,8 +175,10 @@ describe('ConversationsService', () => {
       id: 'conv-1',
       type: ConversationType.friend,
       deleted_at: null,
-      participants: [{ user_id: 'user-1' }],
       group: null,
+    });
+    prisma.conversation_participants.findUnique.mockResolvedValue({
+      id: 'participant-1',
     });
     prisma.messages.findMany.mockResolvedValue([
       {
@@ -339,12 +353,12 @@ describe('ConversationsService', () => {
       id: 'group-conv-1',
       type: ConversationType.group,
       deleted_at: null,
-      participants: [],
       group: {
+        id: 'group-1',
         deleted_at: null,
-        members: [{ user_id: 'user-1' }],
       },
     });
+    prisma.group_members.findUnique.mockResolvedValue({ id: 'member-1' });
     prisma.messages.create.mockResolvedValue({
       id: 'msg-1',
       conversation_id: 'group-conv-1',
@@ -377,12 +391,12 @@ describe('ConversationsService', () => {
       id: 'group-conv-1',
       type: ConversationType.group,
       deleted_at: null,
-      participants: [],
       group: {
+        id: 'group-1',
         deleted_at: null,
-        members: [{ user_id: 'other-user' }],
       },
     });
+    prisma.group_members.findUnique.mockResolvedValue(null);
 
     await expect(
       service.createMessageForConversation('group-conv-1', 'user-1', 'hello'),

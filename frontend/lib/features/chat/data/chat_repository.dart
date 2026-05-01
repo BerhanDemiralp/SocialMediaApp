@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/timing_http_client.dart';
 import '../domain/chat_message.dart';
 import 'chat_api_client.dart';
 import 'chat_socket_client.dart';
@@ -19,6 +19,8 @@ class ChatRepository {
   final ChatSocketClient _socketClient;
 
   Stream<ChatMessage> get messageStream => _socketClient.messageStream;
+
+  String? get currentUserId => _apiClient.currentUserId;
 
   Future<List<ChatMessage>> loadMessagesForConversation({
     required String conversationId,
@@ -68,8 +70,11 @@ class ChatRepository {
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
-  final apiClient = ChatApiClient(http.Client(), supabaseClient);
+  final apiClient = ChatApiClient(TimingHttpClient(), supabaseClient);
   final socketClient = ChatSocketClient(supabaseClient);
-  ref.onDispose(socketClient.dispose);
+  ref.onDispose(() {
+    apiClient.close();
+    socketClient.dispose();
+  });
   return ChatRepository(apiClient: apiClient, socketClient: socketClient);
 });

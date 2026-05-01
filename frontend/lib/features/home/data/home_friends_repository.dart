@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/timing_http_client.dart';
 import 'friend_requests_api_client.dart';
 import 'friends_api_client.dart';
 import 'user_search_api_client.dart';
@@ -9,7 +9,7 @@ import 'user_search_api_client.dart';
 final homeFriendsRepositoryProvider =
     Provider<HomeFriendsRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
+  final httpClient = TimingHttpClient();
   final searchApi = UserSearchApiClient(httpClient, supabaseClient);
   final requestsApi = FriendRequestsApiClient(httpClient, supabaseClient);
   final friendsApi = FriendsApiClient(httpClient, supabaseClient);

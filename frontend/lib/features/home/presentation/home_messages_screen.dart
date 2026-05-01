@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics/app_analytics.dart';
+import '../../../core/network/timing_http_client.dart';
 import '../data/friend_conversations_api_client.dart';
 import '../data/friends_api_client.dart';
 import '../data/home_messaging_repository.dart';
@@ -20,7 +20,7 @@ final friendConversationsProvider =
 final messagesFriendsProvider =
     FutureProvider.autoDispose<List<FriendSummary>>((ref) async {
   final supabaseClient = Supabase.instance.client;
-  final httpClient = http.Client();
+  final httpClient = TimingHttpClient();
   final apiClient = FriendsApiClient(httpClient, supabaseClient);
 
   ref.onDispose(httpClient.close);

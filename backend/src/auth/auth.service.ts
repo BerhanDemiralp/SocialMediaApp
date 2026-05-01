@@ -10,6 +10,19 @@ import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly tokenCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      user: {
+        id: string;
+        email: string;
+        username: string;
+        avatar_url: string | null;
+      };
+    }
+  >();
+
   constructor(
     private supabaseService: SupabaseService,
     private prismaService: PrismaService,
@@ -102,8 +115,17 @@ export class AuthService {
   }
 
   async validateToken(token: string) {
+    const cached = this.tokenCache.get(token);
+    const now = Date.now();
+
+    if (cached && cached.expiresAt > now) {
+      this.logTiming('auth.validateToken.cache', now);
+      return cached.user;
+    }
+
     const { data, error } =
       await this.supabaseService.client.auth.getUser(token);
+    this.logTiming('auth.validateToken.supabase.getUser', now);
 
     if (error) {
       throw new UnauthorizedException(error.message);
@@ -131,12 +153,51 @@ export class AuthService {
     }
 
     // Controllers and gateways expect at least an `id` field on request.user / client.user.
-    return {
+    const validatedUser = {
       id: user.id,
       email: user.email,
       username: user.username,
       avatar_url: user.avatar_url,
     };
+
+    this.tokenCache.set(token, {
+      user: validatedUser,
+      expiresAt: now + this.getTokenCacheTtlMs(token),
+    });
+
+    return validatedUser;
+  }
+
+  private getTokenCacheTtlMs(token: string) {
+    const maxTtlMs = 60_000;
+
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) {
+        return maxTtlMs;
+      }
+
+      const payload = JSON.parse(
+        Buffer.from(payloadPart, 'base64url').toString('utf8'),
+      ) as { exp?: number };
+
+      if (!payload.exp) {
+        return maxTtlMs;
+      }
+
+      const tokenTtlMs = payload.exp * 1000 - Date.now();
+      return Math.max(0, Math.min(maxTtlMs, tokenTtlMs));
+    } catch {
+      return maxTtlMs;
+    }
+  }
+
+  private logTiming(label: string, startedAt: number) {
+    if (process.env.ENABLE_TEMP_TIMING_LOGS === '0') {
+      return;
+    }
+
+    console.warn(`[auth-time] ${label} ${Date.now() - startedAt}ms`);
   }
 
   private async buildAvailableFallbackUsername(user: {

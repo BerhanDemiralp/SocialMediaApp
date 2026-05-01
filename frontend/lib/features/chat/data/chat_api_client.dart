@@ -12,6 +12,12 @@ class ChatApiClient {
   final http.Client _httpClient;
   final SupabaseClient _supabaseClient;
 
+  String? get currentUserId => _supabaseClient.auth.currentUser?.id;
+
+  void close() {
+    _httpClient.close();
+  }
+
   Future<List<ChatMessage>> getMessagesForConversation({
     required String conversationId,
     int limit = 50,
