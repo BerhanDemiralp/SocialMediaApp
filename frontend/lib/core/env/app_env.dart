@@ -11,6 +11,9 @@ class AppEnv {
   static const String _wsBaseUrlOverride = String.fromEnvironment(
     'WS_BASE_URL',
   );
+  static const String _enableTempTimingLogs = String.fromEnvironment(
+    'ENABLE_TEMP_TIMING_LOGS',
+  );
 
   static String get apiBaseUrl {
     if (_apiBaseUrlOverride.isNotEmpty) {
@@ -30,4 +33,8 @@ class AppEnv {
 
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
+
+  static bool get enableTempTimingLogs =>
+      _enableTempTimingLogs == '1' ||
+      _enableTempTimingLogs.toLowerCase() == 'true';
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../env/app_env.dart';
+
 class TimingHttpClient extends http.BaseClient {
   TimingHttpClient([http.Client? inner]) : _inner = inner ?? http.Client();
 
@@ -17,9 +19,11 @@ class TimingHttpClient extends http.BaseClient {
       return response;
     } catch (error) {
       stopwatch.stop();
-      debugPrint(
-        '[http-time] ${request.method} ${request.url} error ${stopwatch.elapsedMilliseconds}ms $error',
-      );
+      if (AppEnv.enableTempTimingLogs) {
+        debugPrint(
+          '[http-time] ${request.method} ${request.url} error ${stopwatch.elapsedMilliseconds}ms $error',
+        );
+      }
       rethrow;
     }
   }
@@ -31,6 +35,10 @@ class TimingHttpClient extends http.BaseClient {
   }
 
   void _log(http.BaseRequest request, int statusCode, int durationMs) {
+    if (!AppEnv.enableTempTimingLogs) {
+      return;
+    }
+
     debugPrint(
       '[http-time] ${request.method} ${request.url} $statusCode ${durationMs}ms',
     );

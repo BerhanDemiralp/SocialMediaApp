@@ -193,7 +193,7 @@ export class AuthService {
   }
 
   private logTiming(label: string, startedAt: number) {
-    if (process.env.ENABLE_TEMP_TIMING_LOGS === '0') {
+    if (process.env.ENABLE_TEMP_TIMING_LOGS !== '1') {
       return;
     }
 

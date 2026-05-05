@@ -5,7 +5,7 @@ import { NextFunction, Request, Response } from 'express';
 export class RequestTimingMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const startedAt = process.hrtime.bigint();
-    const enabled = process.env.ENABLE_TEMP_TIMING_LOGS !== '0';
+    const enabled = process.env.ENABLE_TEMP_TIMING_LOGS === '1';
 
     res.on('finish', () => {
       if (!enabled) {

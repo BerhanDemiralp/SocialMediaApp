@@ -4,3 +4,5 @@ Thumbs.db
 .vscode
 .env
 notes_for_me
+.agents/
+.claude/

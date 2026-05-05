@@ -18,7 +18,7 @@ const pool = new Pool({
 });
 
 const adapter = new PrismaPg(pool);
-const enableTimingLogs = process.env.ENABLE_TEMP_TIMING_LOGS !== '0';
+const enableTimingLogs = process.env.ENABLE_TEMP_TIMING_LOGS === '1';
 
 @Injectable()
 export class PrismaService
