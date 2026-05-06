@@ -12,6 +12,23 @@ enum ConversationType {
   group
 }
 
+enum MomentMatchType {
+  friend
+  group
+}
+
+enum MomentMatchStatus {
+  scheduled
+  active
+  successful
+  expired
+}
+
+enum MomentOptInState {
+  pending
+  opted_in
+}
+
 model users {
   id         String   @id @default(uuid())
   username   String   @unique
@@ -27,6 +44,8 @@ model users {
   user_answers              user_answers[]
   games                     games[]
   conversation_participants conversation_participants[]
+  moment_matches_as_user_a  moment_matches[]            @relation("MomentMatchUserA")
+  moment_matches_as_user_b  moment_matches[]            @relation("MomentMatchUserB")
 }
 
 model friendships {
@@ -57,6 +76,7 @@ model groups {
 
   members           group_members[]
   chat_conversation conversations?  @relation("GroupChatConversation", fields: [conversation_id], references: [id])
+  moment_matches    moment_matches[]
 }
 
 model group_members {
@@ -131,6 +151,7 @@ model conversations {
   participants conversation_participants[]
   messages     messages[]
   group        groups?                     @relation("GroupChatConversation")
+  moment_matches moment_matches[]
 
   @@index([deleted_at, type, updated_at])
 }
@@ -147,4 +168,36 @@ model conversation_participants {
 
   @@unique([conversation_id, user_id])
   @@index([user_id, conversation_id])
+}
+
+model moment_matches {
+  id                 String            @id @default(uuid())
+  match_type         MomentMatchType
+  status             MomentMatchStatus @default(scheduled)
+  user_a_id          String
+  user_b_id          String
+  group_id           String?
+  conversation_id    String
+  scheduled_day      DateTime
+  scheduled_at       DateTime
+  expires_at         DateTime
+  reminder_sent_at   DateTime?
+  user_a_opt_in      MomentOptInState  @default(pending)
+  user_b_opt_in      MomentOptInState  @default(pending)
+  created_at         DateTime          @default(now())
+  updated_at         DateTime          @updatedAt
+
+  user_a       users         @relation("MomentMatchUserA", fields: [user_a_id], references: [id])
+  user_b       users         @relation("MomentMatchUserB", fields: [user_b_id], references: [id])
+  group        groups?       @relation(fields: [group_id], references: [id])
+  conversation conversations @relation(fields: [conversation_id], references: [id])
+
+  @@unique([scheduled_day, match_type, user_a_id])
+  @@unique([scheduled_day, match_type, user_b_id])
+  @@unique([scheduled_day, match_type, user_a_id, user_b_id])
+  @@index([status, expires_at])
+  @@index([user_a_id, match_type, scheduled_at])
+  @@index([user_b_id, match_type, scheduled_at])
+  @@index([conversation_id])
+  @@index([group_id])
 }

@@ -17,6 +17,7 @@ class FriendConversationSummary {
     this.avatarUrl,
     this.lastMessagePreview,
     this.lastMessageAt,
+    this.writable = true,
   });
 
   final String? friendId;
@@ -29,8 +30,10 @@ class FriendConversationSummary {
   final String? avatarUrl;
   final String? lastMessagePreview;
   final DateTime? lastMessageAt;
+  final bool writable;
 
-  bool get isGroup => conversationType == 'group';
+  bool get isGroup => conversationType == 'group' || conversationType == 'group_pair';
+  bool get isTemporary => conversationType == 'group_pair';
 }
 
 class FriendConversationsApiClient {
@@ -159,6 +162,7 @@ class FriendConversationsApiClient {
               : null,
       lastMessagePreview: lastMessage['content'] as String?,
       lastMessageAt: createdAt,
+      writable: map['writable'] as bool? ?? true,
     );
   }
 }

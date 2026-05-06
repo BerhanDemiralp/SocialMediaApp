@@ -10,6 +10,7 @@ import { FriendsModule } from './friends/friends.module';
 import { GroupsModule } from './groups/groups.module';
 import { DailyQuestionsModule } from './daily-questions/daily-questions.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { MatchingEngineModule } from './matching-engine/matching-engine.module';
 import { RequestTimingMiddleware } from './diagnostics/request-timing.middleware';
 
 @Module({
@@ -23,6 +24,7 @@ import { RequestTimingMiddleware } from './diagnostics/request-timing.middleware
     GroupsModule,
     DailyQuestionsModule,
     ConversationsModule,
+    MatchingEngineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -151,6 +151,7 @@ class HomeMessagesScreen extends ConsumerWidget {
                                     queryParameters: {
                                       'type': 'group',
                                       'title': convo.displayName,
+                                      if (convo.isTemporary) 'temporary': '1',
                                     },
                                   ).toString()
                                 : '/conversation/${convo.conversationId}';
@@ -300,7 +301,9 @@ class _ConversationListTile extends StatelessWidget {
         ],
       ),
       subtitle: Text(
-        conversation.lastMessagePreview ?? 'No messages yet.',
+        conversation.writable
+            ? conversation.lastMessagePreview ?? 'No messages yet.'
+            : 'Read-only history',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

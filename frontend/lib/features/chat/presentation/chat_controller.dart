@@ -9,22 +9,26 @@ import '../../chat/domain/chat_message.dart';
 class ChatState {
   final List<ChatMessage> messages;
   final bool isLoading;
+  final bool writable;
   final String? error;
 
   const ChatState({
     required this.messages,
     required this.isLoading,
+    this.writable = true,
     this.error,
   });
 
   ChatState copyWith({
     List<ChatMessage>? messages,
     bool? isLoading,
+    bool? writable,
     String? error,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
+      writable: writable ?? this.writable,
       error: error,
     );
   }
@@ -49,12 +53,13 @@ class ConversationChatController extends StateNotifier<ChatState> {
   Future<void> _init() async {
     try {
       _repository.joinConversation(_conversationId);
-      final initialMessages = await _repository.loadMessagesForConversation(
+      final page = await _repository.loadMessagesForConversation(
         conversationId: _conversationId,
         limit: 50,
       );
       state = state.copyWith(
-        messages: _sortMessages(initialMessages),
+        messages: _sortMessages(page.items),
+        writable: page.writable,
         isLoading: false,
       );
 
@@ -75,7 +80,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
 
   Future<void> sendMessage(String content) async {
     final trimmedContent = content.trim();
-    if (trimmedContent.isEmpty) return;
+    if (trimmedContent.isEmpty || !state.writable) return;
 
     final optimisticId =
         'local-${DateTime.now().microsecondsSinceEpoch.toString()}';

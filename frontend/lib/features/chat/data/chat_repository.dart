@@ -22,7 +22,7 @@ class ChatRepository {
 
   String? get currentUserId => _apiClient.currentUserId;
 
-  Future<List<ChatMessage>> loadMessagesForConversation({
+  Future<ChatMessagePage> loadMessagesForConversation({
     required String conversationId,
     int limit = 50,
   }) {

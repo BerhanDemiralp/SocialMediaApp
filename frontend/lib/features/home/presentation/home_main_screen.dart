@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/matching_engine_api_client.dart';
 import 'home_friends_screen.dart';
 
 /// New Home tab UI skeleton.
@@ -10,12 +14,14 @@ import 'home_friends_screen.dart';
 /// - Feed items
 ///
 /// Real data can be wired later from repositories.
-class HomeMainScreen extends StatelessWidget {
+class HomeMainScreen extends ConsumerWidget {
   const HomeMainScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final activeMomentsAsync = ref.watch(activeMomentsProvider);
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return Scaffold(
       body: SafeArea(
@@ -53,6 +59,19 @@ class HomeMainScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _DailyMessageCard(),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: activeMomentsAsync.when(
+                  data: (moments) => _ActiveMomentsSection(
+                    moments: moments,
+                    currentUserId: currentUserId,
+                  ),
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
               ),
             ),
             SliverToBoxAdapter(
@@ -116,6 +135,93 @@ class HomeMainScreen extends StatelessWidget {
               child: SizedBox(height: 16),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveMomentsSection extends StatelessWidget {
+  const _ActiveMomentsSection({
+    required this.moments,
+    required this.currentUserId,
+  });
+
+  final List<MomentSummary> moments;
+  final String? currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    if (moments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Active pairings',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        ...moments.map(
+          (moment) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _MomentCard(
+              moment: moment,
+              currentUserId: currentUserId,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MomentCard extends StatelessWidget {
+  const _MomentCard({
+    required this.moment,
+    required this.currentUserId,
+  });
+
+  final MomentSummary moment;
+  final String? currentUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = moment.isGroup ? 'Group Moment' : 'Friend Moment';
+    final expires =
+        '${moment.expiresAt.hour}:${moment.expiresAt.minute.toString().padLeft(2, '0')}';
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: moment.isGroup
+              ? theme.colorScheme.secondaryContainer
+              : theme.colorScheme.primaryContainer,
+          foregroundColor: moment.isGroup
+              ? theme.colorScheme.onSecondaryContainer
+              : theme.colorScheme.onPrimaryContainer,
+          child: Icon(moment.isGroup ? Icons.groups_2 : Icons.person),
+        ),
+        title: Text(moment.otherParticipantName(currentUserId)),
+        subtitle: Text('$label - active until $expires'),
+        trailing: IconButton(
+          icon: const Icon(Icons.chat_bubble_outline),
+          tooltip: 'Open chat',
+          onPressed: () {
+            final route = Uri(
+              path: '/conversation/${moment.conversationId}',
+              queryParameters: {
+                if (moment.isGroup) 'type': 'group',
+                if (moment.isGroup) 'temporary': '1',
+                'title': moment.otherParticipantName(currentUserId),
+              },
+            ).toString();
+            context.push(route);
+          },
         ),
       ),
     );

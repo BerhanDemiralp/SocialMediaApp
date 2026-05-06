@@ -52,6 +52,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ChatScreen(
             conversationId: conversationId,
             isGroup: state.uri.queryParameters['type'] == 'group',
+            isTemporary: state.uri.queryParameters['temporary'] == '1',
             title: state.uri.queryParameters['title'],
           );
         },

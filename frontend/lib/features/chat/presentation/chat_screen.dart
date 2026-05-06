@@ -91,9 +91,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    widget.isGroup
-                        ? 'Shared group conversation'
-                        : 'Temporary chat - may become permanent after the Moment.',
+                    widget.isTemporary
+                        ? 'Temporary Moment chat'
+                        : 'Shared group conversation',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -143,6 +143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Widget _buildComposer(ChatState state) {
     final isBusy = state.isLoading;
+    final isReadOnly = !state.writable;
     final theme = Theme.of(context);
 
     return SafeArea(
@@ -154,13 +155,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Expanded(
               child: TextField(
                 controller: _controller,
+                enabled: !isReadOnly,
                 minLines: 1,
                 maxLines: 4,
                 onChanged: (_) {
                   // Typing indicators are not wired for conversation-only chat yet.
                 },
                 decoration: InputDecoration(
-                  hintText: 'Message...',
+                  hintText: isReadOnly ? 'This Moment is read-only' : 'Message...',
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
@@ -187,7 +189,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ? theme.colorScheme.onPrimary
                       : theme.colorScheme.onSurfaceVariant,
                 ),
-                onPressed: !_canSend || isBusy
+                onPressed: !_canSend || isBusy || isReadOnly
                     ? null
                     : () {
                         final text = _controller.text;

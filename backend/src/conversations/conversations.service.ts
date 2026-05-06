@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConversationType } from '@prisma/client';
+import {
+  ConversationType,
+  MomentMatchStatus,
+  MomentMatchType,
+  MomentOptInState,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -45,6 +50,10 @@ export class ConversationsService {
           take: 1,
         },
         group: true,
+        moment_matches: {
+          orderBy: { scheduled_at: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -108,6 +117,8 @@ export class ConversationsService {
         }
       }
     }
+
+    await this.assertMomentConversationWritable(conversation.id);
 
     const message = await this.prisma.$transaction(async (tx) => {
       const created = await tx.messages.create({
@@ -205,6 +216,59 @@ export class ConversationsService {
             take: 1,
           },
           group: true,
+          moment_matches: {
+            orderBy: { scheduled_at: 'desc' },
+            take: 1,
+          },
+        },
+      });
+
+    if (!conversationWithRelations) {
+      throw new NotFoundException('Conversation not found after creation');
+    }
+
+    return this.mapConversationToSummary(conversationWithRelations);
+  }
+
+  async createGroupPairConversationForMoment(userAId: string, userBId: string) {
+    if (userAId === userBId) {
+      throw new BadRequestException(
+        'You cannot create a group pair conversation with yourself',
+      );
+    }
+
+    const conversation = await this.prisma.conversations.create({
+      data: {
+        type: ConversationType.group_pair,
+        title: null,
+        participants: {
+          create: [
+            { user: { connect: { id: userAId } } },
+            { user: { connect: { id: userBId } } },
+          ],
+        },
+      },
+    });
+
+    const conversationWithRelations =
+      await this.prisma.conversations.findUnique({
+        where: { id: conversation.id },
+        include: {
+          participants: {
+            include: {
+              user: true,
+            },
+          },
+          messages: {
+            where: { deleted_at: null },
+            orderBy: { created_at: 'desc' },
+            take: 1,
+          },
+          group: true,
+          moment_matches: {
+            orderBy: { scheduled_at: 'desc' },
+            take: 1,
+          },
         },
       });
 
@@ -222,6 +286,7 @@ export class ConversationsService {
     cursor?: string,
   ) {
     await this.getAuthorizedConversation(conversationId, userId);
+    const momentState = await this.getMomentConversationState(conversationId);
 
     const take = limit && limit > 0 ? limit : 50;
 
@@ -242,6 +307,7 @@ export class ConversationsService {
     return {
       items: messages,
       nextCursor,
+      writable: momentState.writable,
     };
   }
 
@@ -314,6 +380,38 @@ export class ConversationsService {
     return conversation;
   }
 
+  private async assertMomentConversationWritable(conversationId: string) {
+    const momentState = await this.getMomentConversationState(conversationId);
+
+    if (!momentState.writable) {
+      throw new ForbiddenException('This Moment conversation is read-only');
+    }
+  }
+
+  private async getMomentConversationState(conversationId: string) {
+    const match = await this.prisma.moment_matches.findFirst({
+      where: { conversation_id: conversationId },
+      orderBy: { scheduled_at: 'desc' },
+    });
+
+    if (!match) {
+      return { writable: true };
+    }
+
+    if (match.match_type === MomentMatchType.friend) {
+      return { writable: true };
+    }
+
+    const hasMutualOptIn =
+      match.user_a_opt_in === MomentOptInState.opted_in &&
+      match.user_b_opt_in === MomentOptInState.opted_in;
+
+    return {
+      writable:
+        match.status === MomentMatchStatus.active || hasMutualOptIn,
+    };
+  }
+
   private mapConversationToSummary(conversation: {
     id: string;
     type: ConversationType;
@@ -323,6 +421,12 @@ export class ConversationsService {
     }[];
     messages: { id: string; content: string; created_at: Date }[];
     group?: { id: string; name: string } | null;
+    moment_matches?: {
+      match_type: MomentMatchType;
+      status: MomentMatchStatus;
+      user_a_opt_in: MomentOptInState;
+      user_b_opt_in: MomentOptInState;
+    }[];
   }) {
     const lastMessage = conversation.messages[0] ?? null;
 
@@ -339,6 +443,7 @@ export class ConversationsService {
       friendMatchId: null,
       groupId: conversation.group?.id ?? null,
       groupName: conversation.group?.name ?? null,
+      writable: this.isConversationSummaryWritable(conversation),
       participants,
       lastMessage: lastMessage
         ? {
@@ -348,5 +453,30 @@ export class ConversationsService {
           }
         : null,
     };
+  }
+
+  private isConversationSummaryWritable(conversation: {
+    moment_matches?: {
+      match_type: MomentMatchType;
+      status: MomentMatchStatus;
+      user_a_opt_in: MomentOptInState;
+      user_b_opt_in: MomentOptInState;
+    }[];
+  }) {
+    const match = conversation.moment_matches?.[0];
+
+    if (!match) {
+      return true;
+    }
+
+    if (match.match_type === MomentMatchType.friend) {
+      return true;
+    }
+
+    return (
+      match.status === MomentMatchStatus.active ||
+      (match.user_a_opt_in === MomentOptInState.opted_in &&
+        match.user_b_opt_in === MomentOptInState.opted_in)
+    );
   }
 }

@@ -6,6 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/env/app_env.dart';
 import '../domain/chat_message.dart';
 
+class ChatMessagePage {
+  const ChatMessagePage({
+    required this.items,
+    required this.writable,
+  });
+
+  final List<ChatMessage> items;
+  final bool writable;
+}
+
 class ChatApiClient {
   ChatApiClient(this._httpClient, this._supabaseClient);
 
@@ -18,7 +28,7 @@ class ChatApiClient {
     _httpClient.close();
   }
 
-  Future<List<ChatMessage>> getMessagesForConversation({
+  Future<ChatMessagePage> getMessagesForConversation({
     required String conversationId,
     int limit = 50,
   }) async {
@@ -51,9 +61,12 @@ class ChatApiClient {
         jsonDecode(response.body) as Map<String, dynamic>;
     final List<dynamic> items = body['items'] as List<dynamic>? ?? <dynamic>[];
 
-    return items
-        .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-        .toList();
+    return ChatMessagePage(
+      items: items
+          .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      writable: body['writable'] as bool? ?? true,
+    );
   }
 
   Future<ChatMessage> sendMessageToConversation({

@@ -27,6 +27,7 @@ describe('ConversationsService', () => {
     };
     group_members: { findUnique: jest.Mock };
     matches: { create: jest.Mock };
+    moment_matches: { findFirst: jest.Mock };
   };
 
   beforeEach(async () => {
@@ -61,7 +62,12 @@ describe('ConversationsService', () => {
       matches: {
         create: jest.fn(),
       },
+      moment_matches: {
+        findFirst: jest.fn(),
+      },
     };
+
+    prisma.moment_matches.findFirst.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -116,6 +122,7 @@ describe('ConversationsService', () => {
       friendMatchId: null,
       groupId: null,
       groupName: null,
+      writable: true,
       participants: [
         { id: 'user-1', username: 'u1', avatar_url: null },
         { id: 'user-2', username: 'u2', avatar_url: 'a2' },
@@ -251,6 +258,7 @@ describe('ConversationsService', () => {
       friendMatchId: null,
       groupId: null,
       groupName: null,
+      writable: true,
       participants: [
         { id: 'user-1', username: 'u1', avatar_url: null },
         { id: 'user-2', username: 'u2', avatar_url: 'a2' },
@@ -339,6 +347,7 @@ describe('ConversationsService', () => {
       title: 'Book Club',
       groupId: 'group-1',
       groupName: 'Book Club',
+      writable: true,
       lastMessage: {
         id: 'msg-1',
         content: 'hello group',
@@ -402,5 +411,67 @@ describe('ConversationsService', () => {
       service.createMessageForConversation('group-conv-1', 'user-1', 'hello'),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.messages.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects messages in expired group pair conversations without mutual opt-in', async () => {
+    prisma.conversations.findUnique.mockResolvedValue({
+      id: 'group-pair-conv-1',
+      type: ConversationType.group_pair,
+      deleted_at: null,
+      group: null,
+    });
+    prisma.conversation_participants.findUnique.mockResolvedValue({
+      id: 'participant-1',
+    });
+    prisma.moment_matches.findFirst.mockResolvedValue({
+      id: 'moment-1',
+      match_type: 'group',
+      status: 'expired',
+      user_a_opt_in: 'pending',
+      user_b_opt_in: 'pending',
+    });
+
+    await expect(
+      service.createMessageForConversation(
+        'group-pair-conv-1',
+        'user-1',
+        'hello',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.messages.create).not.toHaveBeenCalled();
+  });
+
+  it('allows expired group pair messages after mutual opt-in', async () => {
+    prisma.conversations.findUnique.mockResolvedValue({
+      id: 'group-pair-conv-1',
+      type: ConversationType.group_pair,
+      deleted_at: null,
+      group: null,
+    });
+    prisma.conversation_participants.findUnique.mockResolvedValue({
+      id: 'participant-1',
+    });
+    prisma.moment_matches.findFirst.mockResolvedValue({
+      id: 'moment-1',
+      match_type: 'group',
+      status: 'expired',
+      user_a_opt_in: 'opted_in',
+      user_b_opt_in: 'opted_in',
+    });
+    prisma.messages.create.mockResolvedValue({
+      id: 'msg-1',
+      conversation_id: 'group-pair-conv-1',
+      sender_id: 'user-1',
+      content: 'hello',
+      created_at: new Date(),
+    });
+
+    const result = await service.createMessageForConversation(
+      'group-pair-conv-1',
+      'user-1',
+      'hello',
+    );
+
+    expect(result.content).toBe('hello');
   });
 });
