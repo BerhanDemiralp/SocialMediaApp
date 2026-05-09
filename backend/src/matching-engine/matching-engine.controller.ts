@@ -29,7 +29,8 @@ export class MatchingEngineController {
   async updateSettings(
     @Body()
     body: {
-      dailyTimeUtc?: string;
+      dailyTimeLocal?: string;
+      timezone?: string;
       enabled?: boolean;
       reminderAfterMinutes?: number;
       activeDurationMinutes?: number;
@@ -71,12 +72,12 @@ export class MatchingEngineController {
 
   @Post('run')
   async runDueWork(
-    @Body() body?: { dailyTimeUtc?: string },
+    @Body() body?: { dailyTimeLocal?: string },
     @Query('debug') debug?: string,
   ) {
     return this.matchingEngineService.runDueWork(
       new Date(),
-      body?.dailyTimeUtc,
+      body?.dailyTimeLocal,
       debug === 'true',
     );
   }

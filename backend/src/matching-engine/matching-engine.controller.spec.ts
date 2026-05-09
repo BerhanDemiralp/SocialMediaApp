@@ -62,37 +62,51 @@ describe('MatchingEngineController', () => {
     service.runDueWork.mockResolvedValue({ created: { friend: 0, group: 0 } });
 
     const result = await controller.runDueWork(
-      { dailyTimeUtc: '16:00' },
+      { dailyTimeLocal: '19:00' },
       'true',
     );
 
     expect(result).toEqual({ created: { friend: 0, group: 0 } });
     expect(service.runDueWork).toHaveBeenCalledWith(
       expect.any(Date),
-      '16:00',
+      '19:00',
       true,
     );
   });
 
   it('returns matching settings', async () => {
-    service.getSettings.mockResolvedValue({ dailyTimeUtc: '16:00' });
+    service.getSettings.mockResolvedValue({
+      dailyTimeLocal: '19:00',
+      timezone: 'Europe/Istanbul',
+    });
 
     const result = await controller.getSettings();
 
-    expect(result).toEqual({ dailyTimeUtc: '16:00' });
+    expect(result).toEqual({
+      dailyTimeLocal: '19:00',
+      timezone: 'Europe/Istanbul',
+    });
     expect(service.getSettings).toHaveBeenCalled();
   });
 
   it('updates matching settings', async () => {
-    service.updateSettings.mockResolvedValue({ dailyTimeUtc: '16:30' });
-
-    const result = await controller.updateSettings({
-      dailyTimeUtc: '16:30',
+    service.updateSettings.mockResolvedValue({
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
     });
 
-    expect(result).toEqual({ dailyTimeUtc: '16:30' });
+    const result = await controller.updateSettings({
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
+    });
+
+    expect(result).toEqual({
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
+    });
     expect(service.updateSettings).toHaveBeenCalledWith({
-      dailyTimeUtc: '16:30',
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
     });
   });
 

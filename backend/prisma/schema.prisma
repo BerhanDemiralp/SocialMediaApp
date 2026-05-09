@@ -222,7 +222,8 @@ model moment_matches {
 
 model matching_settings {
   id                  String   @id @default("default")
-  daily_time_utc      String   @default("16:00")
+  daily_time_local    String   @default("19:00")
+  timezone            String   @default("Europe/Istanbul")
   enabled             Boolean  @default(true)
   reminder_after_min  Int      @default(30)
   active_duration_min Int      @default(60)

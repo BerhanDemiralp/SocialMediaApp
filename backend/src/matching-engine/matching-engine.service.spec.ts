@@ -96,7 +96,8 @@ describe('MatchingEngineService', () => {
     };
     repository.getMatchingSettings.mockResolvedValue({
       id: 'default',
-      daily_time_utc: '16:00',
+      daily_time_local: '19:00',
+      timezone: 'Europe/Istanbul',
       enabled: true,
       reminder_after_min: 30,
       active_duration_min: 60,
@@ -111,12 +112,11 @@ describe('MatchingEngineService', () => {
     );
   });
 
-  it('calculates the configured UTC schedule window', () => {
-    const previous = process.env.MOMENT_DAILY_TIME_UTC;
-    process.env.MOMENT_DAILY_TIME_UTC = '16:30';
-
+  it('calculates the UTC schedule window from local time and timezone', () => {
     const result = service.getScheduleWindow(
       new Date('2026-05-05T12:00:00.000Z'),
+      '19:30',
+      'Europe/Istanbul',
     );
 
     expect(result.scheduledDay.toISOString()).toBe(
@@ -126,19 +126,14 @@ describe('MatchingEngineService', () => {
       '2026-05-05T16:30:00.000Z',
     );
     expect(result.expiresAt.toISOString()).toBe('2026-05-05T17:30:00.000Z');
-
-    if (previous === undefined) {
-      delete process.env.MOMENT_DAILY_TIME_UTC;
-    } else {
-      process.env.MOMENT_DAILY_TIME_UTC = previous;
-    }
   });
 
   it('returns matching settings from the repository', async () => {
     const result = await service.getSettings();
 
     expect(result).toEqual({
-      dailyTimeUtc: '16:00',
+      dailyTimeLocal: '19:00',
+      timezone: 'Europe/Istanbul',
       enabled: true,
       reminderAfterMinutes: 30,
       activeDurationMinutes: 60,
@@ -149,7 +144,8 @@ describe('MatchingEngineService', () => {
   it('updates matching settings with normalized time', async () => {
     repository.updateMatchingSettings.mockResolvedValue({
       id: 'default',
-      daily_time_utc: '16:30',
+      daily_time_local: '20:30',
+      timezone: 'Europe/Istanbul',
       enabled: false,
       reminder_after_min: 20,
       active_duration_min: 45,
@@ -157,19 +153,22 @@ describe('MatchingEngineService', () => {
     });
 
     const result = await service.updateSettings({
-      dailyTimeUtc: '16:30',
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
       enabled: false,
       reminderAfterMinutes: 20,
       activeDurationMinutes: 45,
     });
 
     expect(repository.updateMatchingSettings).toHaveBeenCalledWith({
-      dailyTimeUtc: '16:30',
+      dailyTimeLocal: '20:30',
+      timezone: 'Europe/Istanbul',
       enabled: false,
       reminderAfterMinutes: 20,
       activeDurationMinutes: 45,
     });
-    expect(result.dailyTimeUtc).toBe('16:30');
+    expect(result.dailyTimeLocal).toBe('20:30');
+    expect(result.timezone).toBe('Europe/Istanbul');
     expect(result.enabled).toBe(false);
   });
 

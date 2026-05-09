@@ -60,7 +60,8 @@ export class MatchingEngineRepository {
       where: { id: 'default' },
       create: {
         id: 'default',
-        daily_time_utc: '16:00',
+        daily_time_local: '19:00',
+        timezone: 'Europe/Istanbul',
         enabled: true,
         reminder_after_min: 30,
         active_duration_min: 60,
@@ -70,7 +71,8 @@ export class MatchingEngineRepository {
   }
 
   async updateMatchingSettings(input: {
-    dailyTimeUtc?: string;
+    dailyTimeLocal?: string;
+    timezone?: string;
     enabled?: boolean;
     reminderAfterMinutes?: number;
     activeDurationMinutes?: number;
@@ -79,14 +81,18 @@ export class MatchingEngineRepository {
       where: { id: 'default' },
       create: {
         id: 'default',
-        daily_time_utc: input.dailyTimeUtc ?? '16:00',
+        daily_time_local: input.dailyTimeLocal ?? '19:00',
+        timezone: input.timezone ?? 'Europe/Istanbul',
         enabled: input.enabled ?? true,
         reminder_after_min: input.reminderAfterMinutes ?? 30,
         active_duration_min: input.activeDurationMinutes ?? 60,
       },
       update: {
-        ...(input.dailyTimeUtc !== undefined
-          ? { daily_time_utc: input.dailyTimeUtc }
+        ...(input.dailyTimeLocal !== undefined
+          ? { daily_time_local: input.dailyTimeLocal }
+          : {}),
+        ...(input.timezone !== undefined
+          ? { timezone: input.timezone }
           : {}),
         ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
         ...(input.reminderAfterMinutes !== undefined

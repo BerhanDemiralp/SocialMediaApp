@@ -13,7 +13,8 @@ import {
 import { serializeMomentMatch } from './matching-engine.serializer';
 import { MomentNotificationService } from './moment-notification.service';
 
-const DEFAULT_DAILY_TIME_UTC = '16:00';
+const DEFAULT_DAILY_TIME_LOCAL = '19:00';
+const DEFAULT_TIMEZONE = 'Europe/Istanbul';
 const DEFAULT_REMINDER_AFTER_MINUTES = 30;
 const DEFAULT_ACTIVE_DURATION_MINUTES = 60;
 
@@ -24,7 +25,8 @@ export interface MomentScheduleWindow {
 }
 
 export interface MatchingRuntimeSettings {
-  dailyTimeUtc: string;
+  dailyTimeLocal: string;
+  timezone: string;
   enabled: boolean;
   reminderAfterMinutes: number;
   activeDurationMinutes: number;
@@ -120,7 +122,8 @@ export class MatchingEngineService {
     const settings = await this.repository.getMatchingSettings();
 
     return {
-      dailyTimeUtc: settings.daily_time_utc,
+      dailyTimeLocal: settings.daily_time_local,
+      timezone: settings.timezone,
       enabled: settings.enabled,
       reminderAfterMinutes: settings.reminder_after_min,
       activeDurationMinutes: settings.active_duration_min,
@@ -129,21 +132,28 @@ export class MatchingEngineService {
   }
 
   async updateSettings(input: {
-    dailyTimeUtc?: string;
+    dailyTimeLocal?: string;
+    timezone?: string;
     enabled?: boolean;
     reminderAfterMinutes?: number;
     activeDurationMinutes?: number;
   }) {
+    const timezone =
+      input.timezone !== undefined
+        ? this.normalizeTimezone(input.timezone)
+        : undefined;
     const settings = await this.repository.updateMatchingSettings({
       ...input,
-      dailyTimeUtc:
-        input.dailyTimeUtc !== undefined
-          ? this.normalizeDailyTimeUtc(input.dailyTimeUtc)
+      dailyTimeLocal:
+        input.dailyTimeLocal !== undefined
+          ? this.normalizeDailyTimeLocal(input.dailyTimeLocal)
           : undefined,
+      timezone,
     });
 
     return {
-      dailyTimeUtc: settings.daily_time_utc,
+      dailyTimeLocal: settings.daily_time_local,
+      timezone: settings.timezone,
       enabled: settings.enabled,
       reminderAfterMinutes: settings.reminder_after_min,
       activeDurationMinutes: settings.active_duration_min,
@@ -153,25 +163,28 @@ export class MatchingEngineService {
 
   getScheduleWindow(
     now = new Date(),
-    dailyTimeUtc = process.env.MOMENT_DAILY_TIME_UTC ?? DEFAULT_DAILY_TIME_UTC,
+    dailyTimeLocal = DEFAULT_DAILY_TIME_LOCAL,
+    timezone = DEFAULT_TIMEZONE,
     activeDurationMinutes = DEFAULT_ACTIVE_DURATION_MINUTES,
   ): MomentScheduleWindow {
-    const configuredTime =
-      this.normalizeDailyTimeUtc(dailyTimeUtc);
+    const configuredTime = this.normalizeDailyTimeLocal(dailyTimeLocal);
+    const configuredTimezone = this.normalizeTimezone(timezone);
     const [hourText, minuteText] = configuredTime.split(':');
     const hour = Number(hourText);
     const minute = Number(minuteText);
+    const localDate = this.getZonedDateParts(now, configuredTimezone);
 
     const scheduledDay = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      Date.UTC(localDate.year, localDate.month - 1, localDate.day),
     );
 
-    const scheduledAt = new Date(scheduledDay);
-    scheduledAt.setUTCHours(
+    const scheduledAt = this.zonedLocalTimeToUtc(
+      localDate.year,
+      localDate.month,
+      localDate.day,
       Number.isInteger(hour) ? hour : 17,
       Number.isInteger(minute) ? minute : 0,
-      0,
-      0,
+      configuredTimezone,
     );
 
     const normalizedDuration =
@@ -187,12 +200,15 @@ export class MatchingEngineService {
 
   getNextScheduleWindow(
     now = new Date(),
-    dailyTimeUtc = process.env.MOMENT_DAILY_TIME_UTC ?? DEFAULT_DAILY_TIME_UTC,
+    dailyTimeLocal = DEFAULT_DAILY_TIME_LOCAL,
+    timezone = DEFAULT_TIMEZONE,
     activeDurationMinutes = DEFAULT_ACTIVE_DURATION_MINUTES,
   ): MomentScheduleWindow {
+    const configuredTimezone = this.normalizeTimezone(timezone);
     const todayWindow = this.getScheduleWindow(
       now,
-      dailyTimeUtc,
+      dailyTimeLocal,
+      configuredTimezone,
       activeDurationMinutes,
     );
 
@@ -200,23 +216,29 @@ export class MatchingEngineService {
       return todayWindow;
     }
 
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const localDate = this.getZonedDateParts(now, configuredTimezone);
+    const tomorrowUtc = new Date(
+      Date.UTC(localDate.year, localDate.month - 1, localDate.day) +
+        24 * 60 * 60 * 1000,
+    );
     return this.getScheduleWindow(
-      tomorrow,
-      dailyTimeUtc,
+      tomorrowUtc,
+      dailyTimeLocal,
+      configuredTimezone,
       activeDurationMinutes,
     );
   }
 
   async runDueWork(
     now = new Date(),
-    dailyTimeUtc?: string,
+    dailyTimeOverride?: string,
     includeDebug = false,
   ): Promise<MomentRunResult> {
-    const settings = await this.getRuntimeSettings(dailyTimeUtc);
+    const settings = await this.getRuntimeSettings(dailyTimeOverride);
     const creationWindow = this.getNextScheduleWindow(
       now,
-      settings.dailyTimeUtc,
+      settings.dailyTimeLocal,
+      settings.timezone,
       settings.activeDurationMinutes,
     );
 
@@ -270,12 +292,92 @@ export class MatchingEngineService {
     return result;
   }
 
-  private normalizeDailyTimeUtc(value: string) {
-    if (/^\d{2}:\d{2}$/.test(value)) {
-      return value;
+  private normalizeDailyTimeLocal(value: string) {
+    const normalizedValue = value.trim().replace('.', ':');
+    const match = /^(\d{1,2}):(\d{2})$/.exec(normalizedValue);
+
+    if (!match) {
+      throw new BadRequestException('dailyTimeLocal must use HH:mm format');
     }
 
-    return DEFAULT_DAILY_TIME_UTC;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      throw new BadRequestException('dailyTimeLocal must be a valid 24-hour time');
+    }
+
+    return `${hour.toString().padStart(2, '0')}:${minute
+      .toString()
+      .padStart(2, '0')}`;
+  }
+
+  private normalizeTimezone(value: string) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date());
+      return value;
+    } catch {
+      throw new BadRequestException('timezone must be a valid IANA timezone');
+    }
+  }
+
+  private getZonedDateParts(date: Date, timezone: string) {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    });
+    const parts = Object.fromEntries(
+      formatter.formatToParts(date).map((part) => [part.type, part.value]),
+    );
+
+    return {
+      year: Number(parts.year),
+      month: Number(parts.month),
+      day: Number(parts.day),
+      hour: Number(parts.hour),
+      minute: Number(parts.minute),
+      second: Number(parts.second),
+    };
+  }
+
+  private zonedLocalTimeToUtc(
+    year: number,
+    month: number,
+    day: number,
+    hour: number,
+    minute: number,
+    timezone: string,
+  ) {
+    const desiredWallTime = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+    let utcTime = desiredWallTime;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const zoned = this.getZonedDateParts(new Date(utcTime), timezone);
+      const actualWallTime = Date.UTC(
+        zoned.year,
+        zoned.month - 1,
+        zoned.day,
+        zoned.hour,
+        zoned.minute,
+        zoned.second,
+        0,
+      );
+      const diff = desiredWallTime - actualWallTime;
+
+      if (diff === 0) {
+        break;
+      }
+
+      utcTime += diff;
+    }
+
+    return new Date(utcTime);
   }
 
   async activateDueMoments(now = new Date()) {
@@ -546,16 +648,16 @@ export class MatchingEngineService {
   }
 
   async getRuntimeSettings(
-    dailyTimeUtcOverride?: string,
+    dailyTimeOverride?: string,
   ): Promise<MatchingRuntimeSettings> {
     const settings = await this.repository.getMatchingSettings();
 
     return {
-      dailyTimeUtc:
-        dailyTimeUtcOverride ??
-        settings.daily_time_utc ??
-        process.env.MOMENT_DAILY_TIME_UTC ??
-        DEFAULT_DAILY_TIME_UTC,
+      dailyTimeLocal:
+        dailyTimeOverride ??
+        settings.daily_time_local ??
+        DEFAULT_DAILY_TIME_LOCAL,
+      timezone: settings.timezone ?? DEFAULT_TIMEZONE,
       enabled: settings.enabled,
       reminderAfterMinutes:
         settings.reminder_after_min ?? DEFAULT_REMINDER_AFTER_MINUTES,
