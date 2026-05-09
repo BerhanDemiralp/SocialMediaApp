@@ -16,6 +16,18 @@ class ChatMessagePage {
   final bool writable;
 }
 
+class ChatRequestException implements Exception {
+  const ChatRequestException(this.message, {required this.statusCode});
+
+  final String message;
+  final int statusCode;
+
+  bool get isForbidden => statusCode == 403;
+
+  @override
+  String toString() => message;
+}
+
 class ChatApiClient {
   ChatApiClient(this._httpClient, this._supabaseClient);
 
@@ -52,8 +64,9 @@ class ChatApiClient {
     );
 
     if (response.statusCode != 200) {
-      throw StateError(
-        'Failed to load messages (status ${response.statusCode}).',
+      throw ChatRequestException(
+        'Failed to load messages.',
+        statusCode: response.statusCode,
       );
     }
 
@@ -94,8 +107,9 @@ class ChatApiClient {
     );
 
     if (response.statusCode != 201 && response.statusCode != 200) {
-      throw StateError(
-        'Failed to send message (status ${response.statusCode}).',
+      throw ChatRequestException(
+        'Failed to send message.',
+        statusCode: response.statusCode,
       );
     }
 

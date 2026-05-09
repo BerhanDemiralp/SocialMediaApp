@@ -22,6 +22,18 @@ export class FriendsRepository {
     });
   }
 
+  async findAcceptedFriendshipBetweenUsers(userAId: string, userBId: string) {
+    return this.prisma.friendships.findFirst({
+      where: {
+        status: 'accepted',
+        OR: [
+          { requester_id: userAId, addressee_id: userBId },
+          { requester_id: userBId, addressee_id: userAId },
+        ],
+      },
+    });
+  }
+
   async createFriendRequest(requesterId: string, addresseeId: string) {
     return this.prisma.friendships.upsert({
       where: {

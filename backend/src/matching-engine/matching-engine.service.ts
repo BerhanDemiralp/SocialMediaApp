@@ -15,11 +15,19 @@ import { MomentNotificationService } from './moment-notification.service';
 
 const DEFAULT_DAILY_TIME_UTC = '16:00';
 const DEFAULT_REMINDER_AFTER_MINUTES = 30;
+const DEFAULT_ACTIVE_DURATION_MINUTES = 60;
 
 export interface MomentScheduleWindow {
   scheduledDay: Date;
   scheduledAt: Date;
   expiresAt: Date;
+}
+
+export interface MatchingRuntimeSettings {
+  dailyTimeUtc: string;
+  enabled: boolean;
+  reminderAfterMinutes: number;
+  activeDurationMinutes: number;
 }
 
 export interface MomentRunResult {
@@ -108,9 +116,45 @@ export class MatchingEngineService {
     return serializeMomentMatch(updated);
   }
 
+  async getSettings() {
+    const settings = await this.repository.getMatchingSettings();
+
+    return {
+      dailyTimeUtc: settings.daily_time_utc,
+      enabled: settings.enabled,
+      reminderAfterMinutes: settings.reminder_after_min,
+      activeDurationMinutes: settings.active_duration_min,
+      updated_at: settings.updated_at,
+    };
+  }
+
+  async updateSettings(input: {
+    dailyTimeUtc?: string;
+    enabled?: boolean;
+    reminderAfterMinutes?: number;
+    activeDurationMinutes?: number;
+  }) {
+    const settings = await this.repository.updateMatchingSettings({
+      ...input,
+      dailyTimeUtc:
+        input.dailyTimeUtc !== undefined
+          ? this.normalizeDailyTimeUtc(input.dailyTimeUtc)
+          : undefined,
+    });
+
+    return {
+      dailyTimeUtc: settings.daily_time_utc,
+      enabled: settings.enabled,
+      reminderAfterMinutes: settings.reminder_after_min,
+      activeDurationMinutes: settings.active_duration_min,
+      updated_at: settings.updated_at,
+    };
+  }
+
   getScheduleWindow(
     now = new Date(),
     dailyTimeUtc = process.env.MOMENT_DAILY_TIME_UTC ?? DEFAULT_DAILY_TIME_UTC,
+    activeDurationMinutes = DEFAULT_ACTIVE_DURATION_MINUTES,
   ): MomentScheduleWindow {
     const configuredTime =
       this.normalizeDailyTimeUtc(dailyTimeUtc);
@@ -130,7 +174,13 @@ export class MatchingEngineService {
       0,
     );
 
-    const expiresAt = new Date(scheduledAt.getTime() + 60 * 60 * 1000);
+    const normalizedDuration =
+      Number.isInteger(activeDurationMinutes) && activeDurationMinutes > 0
+        ? activeDurationMinutes
+        : DEFAULT_ACTIVE_DURATION_MINUTES;
+    const expiresAt = new Date(
+      scheduledAt.getTime() + normalizedDuration * 60 * 1000,
+    );
 
     return { scheduledDay, scheduledAt, expiresAt };
   }
@@ -138,28 +188,60 @@ export class MatchingEngineService {
   getNextScheduleWindow(
     now = new Date(),
     dailyTimeUtc = process.env.MOMENT_DAILY_TIME_UTC ?? DEFAULT_DAILY_TIME_UTC,
+    activeDurationMinutes = DEFAULT_ACTIVE_DURATION_MINUTES,
   ): MomentScheduleWindow {
-    const todayWindow = this.getScheduleWindow(now, dailyTimeUtc);
+    const todayWindow = this.getScheduleWindow(
+      now,
+      dailyTimeUtc,
+      activeDurationMinutes,
+    );
 
-    if (now.getTime() < todayWindow.scheduledAt.getTime()) {
+    if (now.getTime() < todayWindow.expiresAt.getTime()) {
       return todayWindow;
     }
 
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    return this.getScheduleWindow(tomorrow, dailyTimeUtc);
+    return this.getScheduleWindow(
+      tomorrow,
+      dailyTimeUtc,
+      activeDurationMinutes,
+    );
   }
 
   async runDueWork(
     now = new Date(),
-    dailyTimeUtc = process.env.MOMENT_DAILY_TIME_UTC ?? DEFAULT_DAILY_TIME_UTC,
+    dailyTimeUtc?: string,
     includeDebug = false,
   ): Promise<MomentRunResult> {
-    const creationWindow = this.getNextScheduleWindow(now, dailyTimeUtc);
+    const settings = await this.getRuntimeSettings(dailyTimeUtc);
+    const creationWindow = this.getNextScheduleWindow(
+      now,
+      settings.dailyTimeUtc,
+      settings.activeDurationMinutes,
+    );
+
+    if (!settings.enabled) {
+      return {
+        scheduledAt: creationWindow.scheduledAt,
+        expiresAt: creationWindow.expiresAt,
+        created: {
+          friend: 0,
+          group: 0,
+        },
+        activated: 0,
+        remindersSent: 0,
+        expired: 0,
+        successful: 0,
+      };
+    }
+
     const created = await this.createDailyMoments(creationWindow);
 
-    const [activated, remindersSent, expiration] = await Promise.all([
-      this.activateDueMoments(now),
-      this.sendDueReminders(now),
+    const activated = await this.activateDueMoments(now);
+
+    const [earlySuccessful, remindersSent, expiration] = await Promise.all([
+      this.markSuccessfulActiveMoments(now),
+      this.sendDueReminders(now, settings.reminderAfterMinutes),
       this.expireDueMoments(now),
     ]);
 
@@ -173,7 +255,7 @@ export class MatchingEngineService {
       activated,
       remindersSent,
       expired: expiration.expired,
-      successful: expiration.successful,
+      successful: earlySuccessful + expiration.successful,
     };
 
     if (includeDebug) {
@@ -379,11 +461,16 @@ export class MatchingEngineService {
     return stats;
   }
 
-  async sendDueReminders(now = new Date()) {
-    const reminderAfterMinutes = Number(
-      process.env.MOMENT_REMINDER_AFTER_MINUTES ??
-        DEFAULT_REMINDER_AFTER_MINUTES,
-    );
+  async sendDueReminders(
+    now = new Date(),
+    configuredReminderAfterMinutes?: number,
+  ) {
+    const reminderAfterMinutes =
+      configuredReminderAfterMinutes ??
+      Number(
+        process.env.MOMENT_REMINDER_AFTER_MINUTES ??
+          DEFAULT_REMINDER_AFTER_MINUTES,
+      );
     const inactiveSince = new Date(
       now.getTime() - reminderAfterMinutes * 60 * 1000,
     );
@@ -407,6 +494,24 @@ export class MatchingEngineService {
     }
 
     return remindersSent;
+  }
+
+  async markSuccessfulActiveMoments(now = new Date()) {
+    const matches = await this.repository.findActiveMatchesForSuccessCheck(now);
+    let successful = 0;
+
+    for (const match of matches) {
+      const isSuccessful = await this.isMatchSuccessful(match);
+
+      if (!isSuccessful) {
+        continue;
+      }
+
+      await this.repository.updateStatus(match.id, MomentMatchStatus.successful);
+      successful += 1;
+    }
+
+    return successful;
   }
 
   async expireDueMoments(now = new Date()) {
@@ -438,5 +543,24 @@ export class MatchingEngineService {
     const userBMessageCount = stats.bySender.get(match.user_b_id) ?? 0;
 
     return stats.total >= 10 && userAMessageCount > 0 && userBMessageCount > 0;
+  }
+
+  async getRuntimeSettings(
+    dailyTimeUtcOverride?: string,
+  ): Promise<MatchingRuntimeSettings> {
+    const settings = await this.repository.getMatchingSettings();
+
+    return {
+      dailyTimeUtc:
+        dailyTimeUtcOverride ??
+        settings.daily_time_utc ??
+        process.env.MOMENT_DAILY_TIME_UTC ??
+        DEFAULT_DAILY_TIME_UTC,
+      enabled: settings.enabled,
+      reminderAfterMinutes:
+        settings.reminder_after_min ?? DEFAULT_REMINDER_AFTER_MINUTES,
+      activeDurationMinutes:
+        settings.active_duration_min ?? DEFAULT_ACTIVE_DURATION_MINUTES,
+    };
   }
 }

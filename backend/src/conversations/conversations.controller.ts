@@ -63,7 +63,12 @@ export class ConversationsController {
 
     const { limit, cursor } = query;
 
-    return this.conversationsService.getConversationMessages(conversationId, userId, limit, cursor);
+    return this.conversationsService.getConversationMessages(
+      conversationId,
+      userId,
+      limit,
+      cursor,
+    );
   }
 
   @Post(':id/messages')
@@ -84,6 +89,25 @@ export class ConversationsController {
       conversationId,
       userId,
       content,
+    );
+  }
+
+  @Post(':id/write-exceptions')
+  async grantOneHourWriteException(
+    @Param('id') conversationId: string,
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Body() body: { grantedToId?: string },
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    return this.conversationsService.grantOneHourWriteException(
+      conversationId,
+      userId,
+      body.grantedToId,
     );
   }
 

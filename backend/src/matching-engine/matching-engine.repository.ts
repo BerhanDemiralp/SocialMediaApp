@@ -55,6 +55,50 @@ export interface CreateMomentMatchInput {
 export class MatchingEngineRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getMatchingSettings() {
+    return this.prisma.matching_settings.upsert({
+      where: { id: 'default' },
+      create: {
+        id: 'default',
+        daily_time_utc: '16:00',
+        enabled: true,
+        reminder_after_min: 30,
+        active_duration_min: 60,
+      },
+      update: {},
+    });
+  }
+
+  async updateMatchingSettings(input: {
+    dailyTimeUtc?: string;
+    enabled?: boolean;
+    reminderAfterMinutes?: number;
+    activeDurationMinutes?: number;
+  }) {
+    return this.prisma.matching_settings.upsert({
+      where: { id: 'default' },
+      create: {
+        id: 'default',
+        daily_time_utc: input.dailyTimeUtc ?? '16:00',
+        enabled: input.enabled ?? true,
+        reminder_after_min: input.reminderAfterMinutes ?? 30,
+        active_duration_min: input.activeDurationMinutes ?? 60,
+      },
+      update: {
+        ...(input.dailyTimeUtc !== undefined
+          ? { daily_time_utc: input.dailyTimeUtc }
+          : {}),
+        ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
+        ...(input.reminderAfterMinutes !== undefined
+          ? { reminder_after_min: input.reminderAfterMinutes }
+          : {}),
+        ...(input.activeDurationMinutes !== undefined
+          ? { active_duration_min: input.activeDurationMinutes }
+          : {}),
+      },
+    });
+  }
+
   async createMomentMatch(input: CreateMomentMatchInput) {
     return this.prisma.moment_matches.create({
       data: {
@@ -138,6 +182,17 @@ export class MatchingEngineRepository {
     return this.prisma.moment_matches.findMany({
       where: {
         status: MomentMatchStatus.scheduled,
+        scheduled_at: { lte: now },
+        expires_at: { gt: now },
+      },
+      include: momentMatchInclude,
+    });
+  }
+
+  async findActiveMatchesForSuccessCheck(now: Date) {
+    return this.prisma.moment_matches.findMany({
+      where: {
+        status: MomentMatchStatus.active,
         scheduled_at: { lte: now },
         expires_at: { gt: now },
       },

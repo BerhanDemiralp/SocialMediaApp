@@ -11,6 +11,7 @@ describe('FriendsService', () => {
   let service: FriendsService;
   let repo: {
     findFriendshipBetweenUsers: jest.Mock;
+    findAcceptedFriendshipBetweenUsers: jest.Mock;
     createFriendRequest: jest.Mock;
     findFriendshipById: jest.Mock;
     updateFriendshipStatus: jest.Mock;
@@ -20,11 +21,13 @@ describe('FriendsService', () => {
   };
   let conversationsService: {
     ensureFriendConversationBetweenUsers: jest.Mock;
+    markDirectConversationReadOnlyAfterUnfriend: jest.Mock;
   };
 
   beforeEach(async () => {
     repo = {
       findFriendshipBetweenUsers: jest.fn(),
+      findAcceptedFriendshipBetweenUsers: jest.fn(),
       createFriendRequest: jest.fn(),
       findFriendshipById: jest.fn(),
       updateFriendshipStatus: jest.fn(),
@@ -35,6 +38,7 @@ describe('FriendsService', () => {
 
     conversationsService = {
       ensureFriendConversationBetweenUsers: jest.fn(),
+      markDirectConversationReadOnlyAfterUnfriend: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -45,7 +49,8 @@ describe('FriendsService', () => {
           useValue: repo,
         },
         {
-          provide: require('../conversations/conversations.service').ConversationsService,
+          provide: require('../conversations/conversations.service')
+            .ConversationsService,
           useValue: conversationsService,
         },
       ],
@@ -123,10 +128,9 @@ describe('FriendsService', () => {
       'req-1',
       'accepted',
     );
-    expect(conversationsService.ensureFriendConversationBetweenUsers).toHaveBeenCalledWith(
-      'user-1',
-      'user-2',
-    );
+    expect(
+      conversationsService.ensureFriendConversationBetweenUsers,
+    ).toHaveBeenCalledWith('user-1', 'user-2');
     expect(result).toEqual({
       id: 'req-1',
       requester_id: 'user-1',
@@ -171,5 +175,36 @@ describe('FriendsService', () => {
     expect(result).toEqual([
       { id: 'user-2', username: 'u2', avatar_url: 'a2' },
     ]);
+  });
+
+  it('removes the accepted friendship even when historical non-accepted rows exist', async () => {
+    repo.findAcceptedFriendshipBetweenUsers.mockResolvedValue({
+      id: 'friendship-accepted',
+      requester_id: 'user-2',
+      addressee_id: 'user-1',
+      status: 'accepted',
+    });
+    repo.updateFriendshipStatus.mockResolvedValue({
+      id: 'friendship-accepted',
+      status: 'rejected',
+    });
+
+    const result = await service.removeFriend('user-1', 'user-2');
+
+    expect(repo.findAcceptedFriendshipBetweenUsers).toHaveBeenCalledWith(
+      'user-1',
+      'user-2',
+    );
+    expect(repo.updateFriendshipStatus).toHaveBeenCalledWith(
+      'friendship-accepted',
+      'rejected',
+    );
+    expect(
+      conversationsService.markDirectConversationReadOnlyAfterUnfriend,
+    ).toHaveBeenCalledWith('user-1', 'user-2');
+    expect(result).toEqual({
+      id: 'friendship-accepted',
+      status: 'rejected',
+    });
   });
 });

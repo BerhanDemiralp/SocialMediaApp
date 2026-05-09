@@ -12,6 +12,13 @@ enum ConversationType {
   group
 }
 
+enum ConversationMode {
+  friend
+  active_moment
+  exception
+  read_only
+}
+
 enum MomentMatchType {
   friend
   group
@@ -37,15 +44,19 @@ model users {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  friendships_as_requester  friendships[]               @relation("FriendshipRequester")
-  friendships_as_addressee  friendships[]               @relation("FriendshipAddressee")
-  group_memberships         group_members[]
-  messages                  messages[]
-  user_answers              user_answers[]
-  games                     games[]
-  conversation_participants conversation_participants[]
-  moment_matches_as_user_a  moment_matches[]            @relation("MomentMatchUserA")
-  moment_matches_as_user_b  moment_matches[]            @relation("MomentMatchUserB")
+  friendships_as_requester     friendships[]                   @relation("FriendshipRequester")
+  friendships_as_addressee     friendships[]                   @relation("FriendshipAddressee")
+  group_memberships            group_members[]
+  messages                     messages[]
+  user_answers                 user_answers[]
+  games                        games[]
+  conversation_participants    conversation_participants[]
+  moment_matches_as_user_a     moment_matches[]                @relation("MomentMatchUserA")
+  moment_matches_as_user_b     moment_matches[]                @relation("MomentMatchUserB")
+  direct_conversations_as_low  conversations[]                 @relation("DirectConversationLowUser")
+  direct_conversations_as_high conversations[]                 @relation("DirectConversationHighUser")
+  granted_write_exceptions     conversation_write_exceptions[] @relation("ConversationWriteExceptionGranter")
+  received_write_exceptions    conversation_write_exceptions[] @relation("ConversationWriteExceptionRecipient")
 }
 
 model friendships {
@@ -75,7 +86,7 @@ model groups {
   deleted_at      DateTime?
 
   members           group_members[]
-  chat_conversation conversations?  @relation("GroupChatConversation", fields: [conversation_id], references: [id])
+  chat_conversation conversations?   @relation("GroupChatConversation", fields: [conversation_id], references: [id])
   moment_matches    moment_matches[]
 }
 
@@ -94,11 +105,11 @@ model group_members {
 }
 
 model messages {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   conversation_id String
   sender_id       String
   content         String
-  created_at      DateTime @default(now())
+  created_at      DateTime  @default(now())
   deleted_at      DateTime?
 
   conversation conversations @relation(fields: [conversation_id], references: [id])
@@ -141,19 +152,26 @@ model games {
 }
 
 model conversations {
-  id         String           @id @default(uuid())
-  type       ConversationType
-  title      String?
-  created_at DateTime         @default(now())
-  updated_at DateTime         @updatedAt
-  deleted_at DateTime?
+  id                  String            @id @default(uuid())
+  type                ConversationType
+  mode                ConversationMode?
+  title               String?
+  direct_user_low_id  String?
+  direct_user_high_id String?
+  created_at          DateTime          @default(now())
+  updated_at          DateTime          @updatedAt
+  deleted_at          DateTime?
 
-  participants conversation_participants[]
-  messages     messages[]
-  group        groups?                     @relation("GroupChatConversation")
-  moment_matches moment_matches[]
+  direct_user_low  users?                          @relation("DirectConversationLowUser", fields: [direct_user_low_id], references: [id])
+  direct_user_high users?                          @relation("DirectConversationHighUser", fields: [direct_user_high_id], references: [id])
+  participants     conversation_participants[]
+  messages         messages[]
+  group            groups?                         @relation("GroupChatConversation")
+  moment_matches   moment_matches[]
+  write_exceptions conversation_write_exceptions[]
 
   @@index([deleted_at, type, updated_at])
+  @@index([direct_user_low_id, direct_user_high_id])
 }
 
 model conversation_participants {
@@ -171,21 +189,21 @@ model conversation_participants {
 }
 
 model moment_matches {
-  id                 String            @id @default(uuid())
-  match_type         MomentMatchType
-  status             MomentMatchStatus @default(scheduled)
-  user_a_id          String
-  user_b_id          String
-  group_id           String?
-  conversation_id    String
-  scheduled_day      DateTime
-  scheduled_at       DateTime
-  expires_at         DateTime
-  reminder_sent_at   DateTime?
-  user_a_opt_in      MomentOptInState  @default(pending)
-  user_b_opt_in      MomentOptInState  @default(pending)
-  created_at         DateTime          @default(now())
-  updated_at         DateTime          @updatedAt
+  id               String            @id @default(uuid())
+  match_type       MomentMatchType
+  status           MomentMatchStatus @default(scheduled)
+  user_a_id        String
+  user_b_id        String
+  group_id         String?
+  conversation_id  String
+  scheduled_day    DateTime
+  scheduled_at     DateTime
+  expires_at       DateTime
+  reminder_sent_at DateTime?
+  user_a_opt_in    MomentOptInState  @default(pending)
+  user_b_opt_in    MomentOptInState  @default(pending)
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
 
   user_a       users         @relation("MomentMatchUserA", fields: [user_a_id], references: [id])
   user_b       users         @relation("MomentMatchUserB", fields: [user_b_id], references: [id])
@@ -200,4 +218,30 @@ model moment_matches {
   @@index([user_b_id, match_type, scheduled_at])
   @@index([conversation_id])
   @@index([group_id])
+}
+
+model matching_settings {
+  id                  String   @id @default("default")
+  daily_time_utc      String   @default("16:00")
+  enabled             Boolean  @default(true)
+  reminder_after_min  Int      @default(30)
+  active_duration_min Int      @default(60)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+}
+
+model conversation_write_exceptions {
+  id              String   @id @default(uuid())
+  conversation_id String
+  granted_by_id   String
+  granted_to_id   String?
+  expires_at      DateTime
+  created_at      DateTime @default(now())
+
+  conversation conversations @relation(fields: [conversation_id], references: [id])
+  granted_by   users         @relation("ConversationWriteExceptionGranter", fields: [granted_by_id], references: [id])
+  granted_to   users?        @relation("ConversationWriteExceptionRecipient", fields: [granted_to_id], references: [id])
+
+  @@index([conversation_id, expires_at])
+  @@index([granted_to_id, expires_at])
 }

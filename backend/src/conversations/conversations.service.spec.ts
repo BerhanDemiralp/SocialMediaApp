@@ -28,6 +28,10 @@ describe('ConversationsService', () => {
     group_members: { findUnique: jest.Mock };
     matches: { create: jest.Mock };
     moment_matches: { findFirst: jest.Mock };
+    conversation_write_exceptions: {
+      findFirst: jest.Mock;
+      create: jest.Mock;
+    };
   };
 
   beforeEach(async () => {
@@ -65,9 +69,15 @@ describe('ConversationsService', () => {
       moment_matches: {
         findFirst: jest.fn(),
       },
+      conversation_write_exceptions: {
+        findFirst: jest.fn(),
+        create: jest.fn(),
+      },
     };
 
     prisma.moment_matches.findFirst.mockResolvedValue(null);
+    prisma.conversation_participants.findMany.mockResolvedValue([]);
+    prisma.conversation_write_exceptions.findFirst.mockResolvedValue(null);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -247,8 +257,10 @@ describe('ConversationsService', () => {
       messages: [],
     });
 
-    const result =
-      await service.ensureFriendConversationBetweenUsers('user-1', 'user-2');
+    const result = await service.ensureFriendConversationBetweenUsers(
+      'user-1',
+      'user-2',
+    );
 
     expect(prisma.conversations.create).toHaveBeenCalled();
     expect(result).toEqual({
@@ -277,6 +289,13 @@ describe('ConversationsService', () => {
 
     prisma.conversations.findFirst.mockResolvedValueOnce({
       id: 'conv-1',
+      type: ConversationType.friend,
+      mode: 'friend',
+    });
+    prisma.conversations.update.mockResolvedValue({
+      id: 'conv-1',
+      type: ConversationType.friend,
+      mode: 'friend',
     });
 
     prisma.conversations.findUnique.mockResolvedValue({
@@ -295,8 +314,10 @@ describe('ConversationsService', () => {
       messages: [],
     });
 
-    const result =
-      await service.ensureFriendConversationBetweenUsers('user-1', 'user-2');
+    const result = await service.ensureFriendConversationBetweenUsers(
+      'user-1',
+      'user-2',
+    );
 
     expect(prisma.conversations.create).not.toHaveBeenCalled();
     expect(result.id).toBe('conv-1');

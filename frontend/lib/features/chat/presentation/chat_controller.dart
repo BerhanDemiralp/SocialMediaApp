@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../chat/data/chat_repository.dart';
+import '../../chat/data/chat_api_client.dart';
 import '../../chat/domain/chat_message.dart';
 
 class ChatState {
@@ -53,15 +54,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
   Future<void> _init() async {
     try {
       _repository.joinConversation(_conversationId);
-      final page = await _repository.loadMessagesForConversation(
-        conversationId: _conversationId,
-        limit: 50,
-      );
-      state = state.copyWith(
-        messages: _sortMessages(page.items),
-        writable: page.writable,
-        isLoading: false,
-      );
+      await refresh(showLoading: true);
 
       _subscription = _repository.messageStream.listen((message) {
         if (message.conversationId == _conversationId) {
@@ -76,6 +69,24 @@ class ConversationChatController extends StateNotifier<ChatState> {
         error: 'Failed to load messages.',
       );
     }
+  }
+
+  Future<void> refresh({bool showLoading = false}) async {
+    if (showLoading) {
+      state = state.copyWith(isLoading: true, error: null);
+    }
+
+    final page = await _repository.loadMessagesForConversation(
+      conversationId: _conversationId,
+      limit: 50,
+    );
+
+    state = state.copyWith(
+      messages: _sortMessages(page.items),
+      writable: page.writable,
+      isLoading: false,
+      error: null,
+    );
   }
 
   Future<void> sendMessage(String content) async {
@@ -108,13 +119,22 @@ class ConversationChatController extends StateNotifier<ChatState> {
             if (existing.id == optimisticId) message else existing,
         ]),
       );
+    } on ChatRequestException catch (error) {
+      state = state.copyWith(
+        messages: [
+          for (final existing in state.messages)
+            if (existing.id != optimisticId) existing,
+        ],
+        writable: error.isForbidden ? false : state.writable,
+        error: null,
+      );
     } catch (_) {
       state = state.copyWith(
         messages: [
           for (final existing in state.messages)
             if (existing.id != optimisticId) existing,
         ],
-        error: 'Failed to send message.',
+        error: null,
       );
     }
   }
@@ -137,8 +157,9 @@ class ConversationChatController extends StateNotifier<ChatState> {
 }
 
 final conversationChatControllerProvider =
-    StateNotifierProvider.family<ConversationChatController, ChatState, String>(
-        (ref, conversationId) {
+    StateNotifierProvider.autoDispose
+        .family<ConversationChatController, ChatState, String>(
+            (ref, conversationId) {
   final repository = ref.watch(chatRepositoryProvider);
   return ConversationChatController(repository, conversationId);
 });

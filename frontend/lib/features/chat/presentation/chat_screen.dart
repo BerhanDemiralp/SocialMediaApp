@@ -30,6 +30,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   bool _canSend = false;
   int _lastMessageCount = 0;
+  bool? _lastWritable;
 
   @override
   void initState() {
@@ -60,6 +61,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       conversationChatControllerProvider(widget.conversationId!),
     );
     final currentUserId = ref.watch(currentUserIdProvider).valueOrNull;
+
+    if (_lastWritable != chatState.writable) {
+      _lastWritable = chatState.writable;
+      if (!chatState.writable && _controller.text.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _controller.clear();
+        });
+      }
+    }
 
     if (chatState.messages.length != _lastMessageCount) {
       _lastMessageCount = chatState.messages.length;
@@ -122,7 +133,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     if (state.messages.isEmpty) {
-      return const Center(child: Text('No messages yet. Say hi!'));
+      return Center(
+        child: Text(
+          state.writable ? 'No messages yet. Say hi!' : 'No messages yet.',
+        ),
+      );
     }
 
     return ListView.builder(
@@ -162,7 +177,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   // Typing indicators are not wired for conversation-only chat yet.
                 },
                 decoration: InputDecoration(
-                  hintText: isReadOnly ? 'This Moment is read-only' : 'Message...',
+                  hintText:
+                      isReadOnly ? 'This chat is read-only' : 'Message...',
                   filled: true,
                   fillColor: theme.colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(

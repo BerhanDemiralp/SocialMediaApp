@@ -51,6 +51,9 @@ describe('MatchingEngineService', () => {
     findByIdForParticipant: jest.Mock;
     recordOptIn: jest.Mock;
     findDueScheduledMatches: jest.Mock;
+    findActiveMatchesForSuccessCheck: jest.Mock;
+    getMatchingSettings: jest.Mock;
+    updateMatchingSettings: jest.Mock;
   };
   let notifications: {
     notifyReminder: jest.Mock;
@@ -79,6 +82,9 @@ describe('MatchingEngineService', () => {
       findByIdForParticipant: jest.fn(),
       recordOptIn: jest.fn(),
       findDueScheduledMatches: jest.fn(),
+      findActiveMatchesForSuccessCheck: jest.fn(),
+      getMatchingSettings: jest.fn(),
+      updateMatchingSettings: jest.fn(),
     };
     notifications = {
       notifyReminder: jest.fn(),
@@ -88,6 +94,15 @@ describe('MatchingEngineService', () => {
       ensureFriendConversationBetweenUsers: jest.fn(),
       createGroupPairConversationForMoment: jest.fn(),
     };
+    repository.getMatchingSettings.mockResolvedValue({
+      id: 'default',
+      daily_time_utc: '16:00',
+      enabled: true,
+      reminder_after_min: 30,
+      active_duration_min: 60,
+      updated_at: new Date('2026-05-05T12:00:00.000Z'),
+    });
+    repository.findActiveMatchesForSuccessCheck.mockResolvedValue([]);
 
     service = new MatchingEngineService(
       repository as unknown as MatchingEngineRepository,
@@ -117,6 +132,45 @@ describe('MatchingEngineService', () => {
     } else {
       process.env.MOMENT_DAILY_TIME_UTC = previous;
     }
+  });
+
+  it('returns matching settings from the repository', async () => {
+    const result = await service.getSettings();
+
+    expect(result).toEqual({
+      dailyTimeUtc: '16:00',
+      enabled: true,
+      reminderAfterMinutes: 30,
+      activeDurationMinutes: 60,
+      updated_at: new Date('2026-05-05T12:00:00.000Z'),
+    });
+  });
+
+  it('updates matching settings with normalized time', async () => {
+    repository.updateMatchingSettings.mockResolvedValue({
+      id: 'default',
+      daily_time_utc: '16:30',
+      enabled: false,
+      reminder_after_min: 20,
+      active_duration_min: 45,
+      updated_at: new Date('2026-05-05T12:30:00.000Z'),
+    });
+
+    const result = await service.updateSettings({
+      dailyTimeUtc: '16:30',
+      enabled: false,
+      reminderAfterMinutes: 20,
+      activeDurationMinutes: 45,
+    });
+
+    expect(repository.updateMatchingSettings).toHaveBeenCalledWith({
+      dailyTimeUtc: '16:30',
+      enabled: false,
+      reminderAfterMinutes: 20,
+      activeDurationMinutes: 45,
+    });
+    expect(result.dailyTimeUtc).toBe('16:30');
+    expect(result.enabled).toBe(false);
   });
 
   it('sends one reminder for inactive matches', async () => {
@@ -163,9 +217,22 @@ describe('MatchingEngineService', () => {
     );
   });
 
-  it('chooses tomorrow as the next schedule after the daily active time', () => {
+  it('chooses today as the next schedule during the daily active window', () => {
     const result = service.getNextScheduleWindow(
-      new Date('2026-05-05T19:00:00.000Z'),
+      new Date('2026-05-05T16:30:00.000Z'),
+    );
+
+    expect(result.scheduledAt.toISOString()).toBe(
+      '2026-05-05T16:00:00.000Z',
+    );
+    expect(result.expiresAt.toISOString()).toBe(
+      '2026-05-05T17:00:00.000Z',
+    );
+  });
+
+  it('chooses tomorrow after the daily active window expires', () => {
+    const result = service.getNextScheduleWindow(
+      new Date('2026-05-05T17:01:00.000Z'),
     );
 
     expect(result.scheduledAt.toISOString()).toBe(
@@ -187,6 +254,49 @@ describe('MatchingEngineService', () => {
     expect(result).toBe(0);
     expect(notifications.notifyReminder).not.toHaveBeenCalled();
     expect(repository.markReminderSent).not.toHaveBeenCalled();
+  });
+
+  it('marks active matches successful as soon as message thresholds are met', async () => {
+    const match = makeMatch({ status: MomentMatchStatus.active });
+    repository.findActiveMatchesForSuccessCheck.mockResolvedValue([match]);
+    repository.getMessageStatsForMatch.mockResolvedValue({
+      total: 10,
+      bySender: new Map([
+        ['user-1', 4],
+        ['user-2', 6],
+      ]),
+    });
+    repository.updateStatus.mockResolvedValue({
+      ...match,
+      status: MomentMatchStatus.successful,
+    });
+
+    const result = await service.markSuccessfulActiveMoments(
+      new Date('2026-05-05T17:10:00.000Z'),
+    );
+
+    expect(result).toBe(1);
+    expect(repository.updateStatus).toHaveBeenCalledWith(
+      'moment-1',
+      MomentMatchStatus.successful,
+    );
+  });
+
+  it('keeps active matches active until both users participate in the threshold', async () => {
+    repository.findActiveMatchesForSuccessCheck.mockResolvedValue([
+      makeMatch({ status: MomentMatchStatus.active }),
+    ]);
+    repository.getMessageStatsForMatch.mockResolvedValue({
+      total: 10,
+      bySender: new Map([['user-1', 10]]),
+    });
+
+    const result = await service.markSuccessfulActiveMoments(
+      new Date('2026-05-05T17:10:00.000Z'),
+    );
+
+    expect(result).toBe(0);
+    expect(repository.updateStatus).not.toHaveBeenCalled();
   });
 
   it('marks due matches successful when message thresholds are met', async () => {

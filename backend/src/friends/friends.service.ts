@@ -179,15 +179,25 @@ export class FriendsService {
 
   async removeFriend(userId: string, friendId: string) {
     const friendship =
-      await this.friendsRepository.findFriendshipBetweenUsers(userId, friendId);
+      await this.friendsRepository.findAcceptedFriendshipBetweenUsers(
+        userId,
+        friendId,
+      );
 
-    if (!friendship || friendship.status !== 'accepted') {
+    if (!friendship) {
       throw new NotFoundException('Friendship not found');
     }
 
-    return this.friendsRepository.updateFriendshipStatus(
+    const updated = await this.friendsRepository.updateFriendshipStatus(
       friendship.id,
       'rejected',
     );
+
+    await this.conversationsService.markDirectConversationReadOnlyAfterUnfriend(
+      userId,
+      friendId,
+    );
+
+    return updated;
   }
 }

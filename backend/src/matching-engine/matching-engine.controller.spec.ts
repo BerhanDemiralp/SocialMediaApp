@@ -9,6 +9,8 @@ describe('MatchingEngineController', () => {
     getMomentHistoryForUser: jest.Mock;
     runDueWork: jest.Mock;
     optInToGroupMoment: jest.Mock;
+    getSettings: jest.Mock;
+    updateSettings: jest.Mock;
   };
 
   beforeEach(() => {
@@ -17,6 +19,8 @@ describe('MatchingEngineController', () => {
       getMomentHistoryForUser: jest.fn(),
       runDueWork: jest.fn(),
       optInToGroupMoment: jest.fn(),
+      getSettings: jest.fn(),
+      updateSettings: jest.fn(),
     };
 
     controller = new MatchingEngineController(
@@ -68,6 +72,28 @@ describe('MatchingEngineController', () => {
       '16:00',
       true,
     );
+  });
+
+  it('returns matching settings', async () => {
+    service.getSettings.mockResolvedValue({ dailyTimeUtc: '16:00' });
+
+    const result = await controller.getSettings();
+
+    expect(result).toEqual({ dailyTimeUtc: '16:00' });
+    expect(service.getSettings).toHaveBeenCalled();
+  });
+
+  it('updates matching settings', async () => {
+    service.updateSettings.mockResolvedValue({ dailyTimeUtc: '16:30' });
+
+    const result = await controller.updateSettings({
+      dailyTimeUtc: '16:30',
+    });
+
+    expect(result).toEqual({ dailyTimeUtc: '16:30' });
+    expect(service.updateSettings).toHaveBeenCalledWith({
+      dailyTimeUtc: '16:30',
+    });
   });
 
   it('records group moment opt-in for the authenticated participant', async () => {

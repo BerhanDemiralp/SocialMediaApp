@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Request,
@@ -18,6 +19,24 @@ import { MatchingEngineService } from './matching-engine.service';
 @UseGuards(AuthGuard)
 export class MatchingEngineController {
   constructor(private readonly matchingEngineService: MatchingEngineService) {}
+
+  @Get('settings')
+  async getSettings() {
+    return this.matchingEngineService.getSettings();
+  }
+
+  @Patch('settings')
+  async updateSettings(
+    @Body()
+    body: {
+      dailyTimeUtc?: string;
+      enabled?: boolean;
+      reminderAfterMinutes?: number;
+      activeDurationMinutes?: number;
+    },
+  ) {
+    return this.matchingEngineService.updateSettings(body);
+  }
 
   @Get('me/current')
   async getCurrentMoments(
