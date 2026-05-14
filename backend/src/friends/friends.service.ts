@@ -200,4 +200,44 @@ export class FriendsService {
 
     return updated;
   }
+
+  async createAcceptedFriendshipFromMoment(userAId: string, userBId: string) {
+    const friendship =
+      await this.friendsRepository.createOrAcceptFriendshipBetweenUsers(
+        userAId,
+        userBId,
+      );
+
+    const conversation =
+      await this.conversationsService.ensureFriendConversationBetweenUsers(
+        userAId,
+        userBId,
+      );
+
+    return { friendship, conversation };
+  }
+
+  async removeAcceptedFriendshipFromMoment(userAId: string, userBId: string) {
+    const friendship =
+      await this.friendsRepository.findAcceptedFriendshipBetweenUsers(
+        userAId,
+        userBId,
+      );
+
+    if (!friendship) {
+      return null;
+    }
+
+    const updated = await this.friendsRepository.updateFriendshipStatus(
+      friendship.id,
+      'rejected',
+    );
+
+    await this.conversationsService.markDirectConversationReadOnlyAfterUnfriend(
+      userAId,
+      userBId,
+    );
+
+    return updated;
+  }
 }

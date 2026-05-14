@@ -465,8 +465,10 @@ export class ConversationsService {
     }
 
     if (match.match_type === MomentMatchType.friend) {
+      const isWithinMomentWindow = this.isWithinMomentWindow(match, new Date());
+
       return {
-        writable: directUserIds.length !== 2,
+        writable: isWithinMomentWindow || directUserIds.length !== 2,
         mode: ConversationMode.friend,
       };
     }
@@ -474,14 +476,31 @@ export class ConversationsService {
     const hasMutualOptIn =
       match.user_a_opt_in === MomentOptInState.opted_in &&
       match.user_b_opt_in === MomentOptInState.opted_in;
+    const isActiveMoment =
+      match.status === MomentMatchStatus.active ||
+      this.isWithinMomentWindow(match, new Date());
 
     return {
-      writable: match.status === MomentMatchStatus.active || hasMutualOptIn,
+      writable: isActiveMoment || hasMutualOptIn,
       mode:
-        match.status === MomentMatchStatus.active || hasMutualOptIn
+        isActiveMoment || hasMutualOptIn
           ? ConversationMode.active_moment
           : ConversationMode.read_only,
     };
+  }
+
+  private isWithinMomentWindow(
+    match: { scheduled_at?: Date; expires_at?: Date },
+    now: Date,
+  ) {
+    if (!match.scheduled_at || !match.expires_at) {
+      return false;
+    }
+
+    return (
+      match.scheduled_at.getTime() <= now.getTime() &&
+      match.expires_at.getTime() > now.getTime()
+    );
   }
 
   private getDirectPairIds(userAId: string, userBId: string) {
@@ -633,6 +652,8 @@ export class ConversationsService {
     moment_matches?: {
       match_type: MomentMatchType;
       status: MomentMatchStatus;
+      scheduled_at: Date;
+      expires_at: Date;
       user_a_opt_in: MomentOptInState;
       user_b_opt_in: MomentOptInState;
     }[];
@@ -671,6 +692,8 @@ export class ConversationsService {
     moment_matches?: {
       match_type: MomentMatchType;
       status: MomentMatchStatus;
+      scheduled_at: Date;
+      expires_at: Date;
       user_a_opt_in: MomentOptInState;
       user_b_opt_in: MomentOptInState;
     }[];
@@ -699,6 +722,7 @@ export class ConversationsService {
 
     return (
       match.status === MomentMatchStatus.active ||
+      this.isWithinMomentWindow(match, new Date()) ||
       (match.user_a_opt_in === MomentOptInState.opted_in &&
         match.user_b_opt_in === MomentOptInState.opted_in)
     );

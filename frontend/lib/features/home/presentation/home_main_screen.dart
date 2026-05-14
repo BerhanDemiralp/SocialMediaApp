@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/matching_engine_api_client.dart';
+import '../../chat/presentation/chat_screen.dart';
 import 'home_friends_screen.dart';
+import 'home_messages_screen.dart';
 
 /// New Home tab UI skeleton.
 ///
@@ -14,11 +17,225 @@ import 'home_friends_screen.dart';
 /// - Feed items
 ///
 /// Real data can be wired later from repositories.
-class HomeMainScreen extends ConsumerWidget {
+class HomeMainScreen extends ConsumerStatefulWidget {
   const HomeMainScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeMainScreen> createState() => _HomeMainScreenState();
+}
+
+class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
+  Timer? _successPollTimer;
+  Timer? _activeMomentsRefreshTimer;
+  final Set<String> _acknowledgedSuccessfulMomentIds = <String>{};
+  final Set<String> _handledFriendConsentMomentIds = <String>{};
+  bool _hasSeededSuccessfulMoments = false;
+  bool _isCheckingSuccessfulMoments = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForSuccessfulMoments();
+    });
+    _successPollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _checkForSuccessfulMoments(),
+    );
+    _activeMomentsRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        if (mounted) {
+          ref.invalidate(activeMomentsProvider);
+        }
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _successPollTimer?.cancel();
+    _activeMomentsRefreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkForSuccessfulMoments() async {
+    if (_isCheckingSuccessfulMoments) {
+      return;
+    }
+
+    _isCheckingSuccessfulMoments = true;
+
+    try {
+      final client = ref.read(matchingEngineApiClientProvider);
+      final currentUserId = client.currentUserId;
+
+      if (currentUserId == null) {
+        return;
+      }
+
+      final history = await client.getMomentHistory(limit: 50);
+      final successfulMoments = history
+          .where((moment) => moment.status == 'successful')
+          .toList();
+      final pendingConsentMomentIds = successfulMoments
+          .where((moment) => moment.hasPendingFriendConsentFor(currentUserId))
+          .map((moment) => moment.id)
+          .toSet();
+
+      if (!_hasSeededSuccessfulMoments) {
+        _acknowledgedSuccessfulMomentIds.addAll(
+          successfulMoments
+              .where((moment) => !pendingConsentMomentIds.contains(moment.id))
+              .map((moment) => moment.id),
+        );
+        _hasSeededSuccessfulMoments = true;
+      }
+
+      for (final moment in successfulMoments) {
+        final hasPendingFriendConsent =
+            moment.hasPendingFriendConsentFor(currentUserId);
+
+        if (hasPendingFriendConsent &&
+            _handledFriendConsentMomentIds.contains(moment.id)) {
+          continue;
+        }
+
+        if (!hasPendingFriendConsent &&
+            _acknowledgedSuccessfulMomentIds.contains(moment.id)) {
+          continue;
+        }
+
+        if (!hasPendingFriendConsent) {
+          _acknowledgedSuccessfulMomentIds.add(moment.id);
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        await _showSuccessfulMomentDialog(moment, currentUserId);
+        if (mounted) {
+          ref.invalidate(activeMomentsProvider);
+        }
+        break;
+      }
+    } catch (_) {
+      // The home feed should stay quiet if this background check fails.
+    } finally {
+      _isCheckingSuccessfulMoments = false;
+    }
+  }
+
+  Future<void> _showSuccessfulMomentDialog(
+    MomentSummary moment,
+    String currentUserId,
+  ) {
+    final otherParticipantName = moment.otherParticipantName(currentUserId);
+    final isGroupMoment = moment.isGroup;
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: !isGroupMoment,
+      builder: (context) {
+        final theme = Theme.of(context);
+
+        return PopScope(
+          canPop: !isGroupMoment,
+          child: AlertDialog(
+          icon: Icon(
+            Icons.verified_rounded,
+            size: 44,
+            color: theme.colorScheme.primary,
+          ),
+          title: const Text('Pairing başarılı'),
+          content: Text(
+            isGroupMoment
+                ? '$otherParticipantName ile pairing başarılı. Arkadaş eklemek ister misin?'
+                : '$otherParticipantName ile pairing başarıyla tamamlandı.',
+          ),
+          actions: isGroupMoment
+              ? [
+                  TextButton(
+                    onPressed: () {
+                      _submitFriendshipResponse(moment, false);
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Hayır'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      _submitFriendshipResponse(moment, true);
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('Evet'),
+                  ),
+                ]
+              : [
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Tamam'),
+                  ),
+                ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _submitFriendshipResponse(
+    MomentSummary moment,
+    bool wantsFriend,
+  ) async {
+    _handledFriendConsentMomentIds.add(moment.id);
+
+    try {
+      final created = await ref
+          .read(matchingEngineApiClientProvider)
+          .respondToGroupMomentFriendship(
+            matchId: moment.id,
+            wantsFriend: wantsFriend,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      _refreshMomentFriendshipViews();
+
+      if (wantsFriend) {
+        Future<void>.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          _refreshMomentFriendshipViews();
+        });
+      }
+
+      if (created) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Arkadaşlık eklendi.')),
+        );
+      }
+    } catch (_) {
+      _handledFriendConsentMomentIds.remove(moment.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Arkadaşlık cevabı gönderilemedi.')),
+      );
+    }
+  }
+
+  void _refreshMomentFriendshipViews() {
+    ref.invalidate(activeMomentsProvider);
+    ref.invalidate(friendConversationsProvider);
+    ref.invalidate(messagesFriendsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final activeMomentsAsync = ref.watch(activeMomentsProvider);
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
@@ -178,7 +395,7 @@ class _ActiveMomentsSection extends StatelessWidget {
   }
 }
 
-class _MomentCard extends StatelessWidget {
+class _MomentCard extends ConsumerWidget {
   const _MomentCard({
     required this.moment,
     required this.currentUserId,
@@ -188,7 +405,7 @@ class _MomentCard extends StatelessWidget {
   final String? currentUserId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final label = moment.isGroup ? 'Group Moment' : 'Friend Moment';
     final expires =
@@ -212,15 +429,52 @@ class _MomentCard extends StatelessWidget {
           icon: const Icon(Icons.chat_bubble_outline),
           tooltip: 'Open chat',
           onPressed: () {
-            final route = Uri(
-              path: '/conversation/${moment.conversationId}',
-              queryParameters: {
-                if (moment.isGroup) 'type': 'group',
-                if (moment.isGroup) 'temporary': '1',
-                'title': moment.otherParticipantName(currentUserId),
-              },
-            ).toString();
-            context.push(route);
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                fullscreenDialog: true,
+                builder: (_) => ChatScreen(
+                  conversationId: moment.conversationId,
+                  isGroup: moment.isGroup,
+                  isTemporary: true,
+                  compactMomentPresentation: true,
+                  title: moment.otherParticipantName(currentUserId),
+                  visibleFrom: moment.scheduledAt,
+                  visibleUntil: moment.expiresAt,
+                  showMomentFriendshipActions:
+                      moment.isGroup && moment.status == 'successful',
+                  momentFriendConsent: moment.friendConsentFor(currentUserId),
+                  momentOtherFriendConsent:
+                      moment.otherFriendConsentFor(currentUserId),
+                  momentFriendshipLocked: moment.isFriendshipLocked,
+                  onMomentFriendshipResponse:
+                      moment.isGroup && moment.status == 'successful'
+                          ? (wantsFriend) async {
+                              final created = await ref
+                                  .read(matchingEngineApiClientProvider)
+                                  .respondToGroupMomentFriendship(
+                                    matchId: moment.id,
+                                    wantsFriend: wantsFriend,
+                                  );
+
+                              ref.invalidate(activeMomentsProvider);
+                              ref.invalidate(friendConversationsProvider);
+                              ref.invalidate(messagesFriendsProvider);
+
+                              Future<void>.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
+                                  ref.invalidate(activeMomentsProvider);
+                                  ref.invalidate(friendConversationsProvider);
+                                  ref.invalidate(messagesFriendsProvider);
+                                },
+                              );
+
+                              return created;
+                            }
+                          : null,
+                ),
+              ),
+            );
           },
         ),
       ),

@@ -27,7 +27,7 @@ class ChatMessage {
       senderAvatarUrl: (json['sender'] as Map<String, dynamic>?)?['avatar_url']
           as String?,
       content: json['content'] as String,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
     );
   }
 }

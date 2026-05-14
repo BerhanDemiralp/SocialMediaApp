@@ -9,6 +9,7 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { DailyQuestionsService } from './daily-questions.service';
@@ -21,6 +22,7 @@ import {
 
 @Controller('daily-questions')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class DailyQuestionsController {
   constructor(private readonly dailyQuestionsService: DailyQuestionsService) {}
 
@@ -48,6 +50,20 @@ export class DailyQuestionsController {
   }
 
   @Get()
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+    description: 'Page number.',
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    type: Number,
+    example: 20,
+    description: 'Number of items per page.',
+  })
   async listDailyQuestions(
     @Request() req: ExpressRequest & { user?: { id: string } },
     @Query('page') page = '1',
@@ -97,6 +113,20 @@ export class DailyQuestionsController {
   }
 
   @Get('answers/me')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+    description: 'Page number.',
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    type: Number,
+    example: 20,
+    description: 'Number of items per page.',
+  })
   async listMyAnswers(
     @Request() req: ExpressRequest & { user?: { id: string } },
     @Query('page') page = '1',
@@ -119,6 +149,20 @@ export class DailyQuestionsController {
   }
 
   @Get('answers/friends')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    example: 1,
+    description: 'Page number.',
+  })
+  @ApiQuery({
+    name: 'pageSize',
+    required: false,
+    type: Number,
+    example: 20,
+    description: 'Number of items per page.',
+  })
   async listFriendsAnswers(
     @Request() req: ExpressRequest & { user?: { id: string } },
     @Query('page') page = '1',

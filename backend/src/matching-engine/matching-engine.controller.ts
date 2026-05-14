@@ -10,13 +10,18 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { ListMomentHistoryQueryDto } from './dto/list-moment-history-query.dto';
+import { RespondGroupMomentFriendshipDto } from './dto/respond-group-moment-friendship.dto';
+import { RunMatchingEngineDto } from './dto/run-matching-engine.dto';
+import { UpdateMatchingSettingsDto } from './dto/update-matching-settings.dto';
 import { MatchingEngineService } from './matching-engine.service';
 
 @Controller('matching-engine')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class MatchingEngineController {
   constructor(private readonly matchingEngineService: MatchingEngineService) {}
 
@@ -26,16 +31,7 @@ export class MatchingEngineController {
   }
 
   @Patch('settings')
-  async updateSettings(
-    @Body()
-    body: {
-      dailyTimeLocal?: string;
-      timezone?: string;
-      enabled?: boolean;
-      reminderAfterMinutes?: number;
-      activeDurationMinutes?: number;
-    },
-  ) {
+  async updateSettings(@Body() body: UpdateMatchingSettingsDto) {
     return this.matchingEngineService.updateSettings(body);
   }
 
@@ -71,8 +67,14 @@ export class MatchingEngineController {
   }
 
   @Post('run')
+  @ApiQuery({
+    name: 'debug',
+    required: false,
+    type: Boolean,
+    description: 'When true, includes candidate and skip debug counters.',
+  })
   async runDueWork(
-    @Body() body?: { dailyTimeLocal?: string },
+    @Body() body?: RunMatchingEngineDto,
     @Query('debug') debug?: string,
   ) {
     return this.matchingEngineService.runDueWork(
@@ -80,6 +82,29 @@ export class MatchingEngineController {
       body?.dailyTimeLocal,
       debug === 'true',
     );
+  }
+
+  @Post('run-creation')
+  @ApiQuery({
+    name: 'debug',
+    required: false,
+    type: Boolean,
+    description: 'When true, includes candidate and skip debug counters.',
+  })
+  async runCreationWork(
+    @Body() body?: RunMatchingEngineDto,
+    @Query('debug') debug?: string,
+  ) {
+    return this.matchingEngineService.runCreationWork(
+      new Date(),
+      body?.dailyTimeLocal,
+      debug === 'true',
+    );
+  }
+
+  @Post('run-status')
+  async runStatusWork() {
+    return this.matchingEngineService.runStatusWork(new Date());
   }
 
   @Post(':matchId/opt-in')
@@ -94,5 +119,24 @@ export class MatchingEngineController {
     }
 
     return this.matchingEngineService.optInToGroupMoment(matchId, userId);
+  }
+
+  @Post(':matchId/friendship-response')
+  async respondToGroupMomentFriendship(
+    @Param('matchId') matchId: string,
+    @Request() req: ExpressRequest & { user?: { id: string } },
+    @Body() body: RespondGroupMomentFriendshipDto,
+  ) {
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new ForbiddenException('Authenticated user context is missing');
+    }
+
+    return this.matchingEngineService.respondToGroupMomentFriendship(
+      matchId,
+      userId,
+      body.wantsFriend,
+    );
   }
 }

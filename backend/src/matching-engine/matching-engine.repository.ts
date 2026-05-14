@@ -128,7 +128,9 @@ export class MatchingEngineRepository {
   ) {
     return this.prisma.moment_matches.findMany({
       where: {
-        status: MomentMatchStatus.active,
+        status: {
+          in: [MomentMatchStatus.active, MomentMatchStatus.successful],
+        },
         scheduled_at: { lte: now },
         expires_at: { gt: now },
         ...(matchType ? { match_type: matchType } : {}),
@@ -148,9 +150,6 @@ export class MatchingEngineRepository {
       where: {
         match_type: matchType,
         scheduled_day: scheduledDay,
-        status: {
-          in: [MomentMatchStatus.scheduled, MomentMatchStatus.active],
-        },
         OR: [{ user_a_id: userId }, { user_b_id: userId }],
       },
       include: momentMatchInclude,
@@ -204,6 +203,24 @@ export class MatchingEngineRepository {
       },
       include: momentMatchInclude,
     });
+  }
+
+  async hasStatusWorkCandidates(now: Date) {
+    const count = await this.prisma.moment_matches.count({
+      where: {
+        status: {
+          in: [
+            MomentMatchStatus.scheduled,
+            MomentMatchStatus.active,
+            MomentMatchStatus.successful,
+          ],
+        },
+        scheduled_at: { lte: now },
+        expires_at: { gt: now },
+      },
+    });
+
+    return count > 0;
   }
 
   async findReminderCandidates(now: Date, inactiveSince: Date) {
@@ -292,6 +309,39 @@ export class MatchingEngineRepository {
         ? { user_a_opt_in: MomentOptInState.opted_in }
         : match.user_b_id === userId
           ? { user_b_opt_in: MomentOptInState.opted_in }
+          : null;
+
+    if (!data) {
+      return null;
+    }
+
+    return this.prisma.moment_matches.update({
+      where: { id: matchId },
+      data,
+      include: momentMatchInclude,
+    });
+  }
+
+  async recordFriendConsent(matchId: string, userId: string, wantsFriend: boolean) {
+    const match = await this.prisma.moment_matches.findUnique({
+      where: { id: matchId },
+      select: {
+        user_a_id: true,
+        user_b_id: true,
+        user_a_friend_consent: true,
+        user_b_friend_consent: true,
+      },
+    });
+
+    if (!match) {
+      return null;
+    }
+
+    const data =
+      match.user_a_id === userId
+        ? { user_a_friend_consent: wantsFriend }
+        : match.user_b_id === userId
+          ? { user_b_friend_consent: wantsFriend }
           : null;
 
     if (!data) {

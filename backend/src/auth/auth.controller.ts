@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
@@ -29,6 +30,7 @@ export class AuthController {
 
   @Post('sync')
   @UseGuards(AuthGuard)
+  @ApiBearerAuth()
   async syncCurrentUser(
     @Request() req: ExpressRequest & {
       user?: {
@@ -43,6 +45,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @ApiBearerAuth()
   async logout(@Headers('authorization') authHeader: string) {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('No token provided');

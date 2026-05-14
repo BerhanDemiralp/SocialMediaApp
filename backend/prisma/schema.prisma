@@ -202,6 +202,8 @@ model moment_matches {
   reminder_sent_at DateTime?
   user_a_opt_in    MomentOptInState  @default(pending)
   user_b_opt_in    MomentOptInState  @default(pending)
+  user_a_friend_consent Boolean?
+  user_b_friend_consent Boolean?
   created_at       DateTime          @default(now())
   updated_at       DateTime          @updatedAt
 

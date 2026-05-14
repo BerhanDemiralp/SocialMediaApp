@@ -59,6 +59,9 @@ describe('MatchingEngineService', () => {
     notifyReminder: jest.Mock;
     notifyMatchStarted: jest.Mock;
   };
+  let friendsService: {
+    createAcceptedFriendshipFromMoment: jest.Mock;
+  };
   let conversationsService: {
     ensureFriendConversationBetweenUsers: jest.Mock;
     createGroupPairConversationForMoment: jest.Mock;
@@ -90,6 +93,9 @@ describe('MatchingEngineService', () => {
       notifyReminder: jest.fn(),
       notifyMatchStarted: jest.fn(),
     };
+    friendsService = {
+      createAcceptedFriendshipFromMoment: jest.fn(),
+    };
     conversationsService = {
       ensureFriendConversationBetweenUsers: jest.fn(),
       createGroupPairConversationForMoment: jest.fn(),
@@ -108,6 +114,7 @@ describe('MatchingEngineService', () => {
     service = new MatchingEngineService(
       repository as unknown as MatchingEngineRepository,
       conversationsService as any,
+      friendsService as any,
       notifications as unknown as MomentNotificationService,
     );
   });

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { MomentMatchStatus, MomentMatchType } from '@prisma/client';
 import { ConversationsService } from '../conversations/conversations.service';
+import { FriendsService } from '../friends/friends.service';
 import {
   MatchingEngineRepository,
   MomentMatchWithRelations,
@@ -51,6 +52,28 @@ export interface MomentRunResult {
   };
 }
 
+export interface MomentCreationRunResult {
+  scheduledAt: Date;
+  expiresAt: Date;
+  created: {
+    friend: number;
+    group: number;
+  };
+  debug?: {
+    friendCandidates: number;
+    groupCandidates: number;
+    friendSkipped: Record<string, number>;
+    groupSkipped: Record<string, number>;
+  };
+}
+
+export interface MomentStatusRunResult {
+  activated: number;
+  remindersSent: number;
+  expired: number;
+  successful: number;
+}
+
 interface MomentCreationStats {
   created: number;
   candidates: number;
@@ -62,11 +85,12 @@ export class MatchingEngineService {
   constructor(
     private readonly repository: MatchingEngineRepository,
     private readonly conversationsService: ConversationsService,
+    private readonly friendsService: FriendsService,
     private readonly notifications: MomentNotificationService,
   ) {}
 
   async getCurrentMomentsForUser(userId: string) {
-    await this.activateDueMoments();
+    await this.runStatusWork();
     const matches = await this.repository.findActiveMatchesForUser(userId);
     return matches.map(serializeMomentMatch);
   }
@@ -116,6 +140,93 @@ export class MatchingEngineService {
     }
 
     return serializeMomentMatch(updated);
+  }
+
+  async respondToGroupMomentFriendship(
+    matchId: string,
+    userId: string,
+    wantsFriend: boolean,
+  ) {
+    const match = await this.repository.findByIdForParticipant(matchId, userId);
+
+    if (!match) {
+      throw new NotFoundException('Moment match not found');
+    }
+
+    if (match.match_type !== MomentMatchType.group) {
+      throw new BadRequestException(
+        'Only successful group Moments support friendship consent',
+      );
+    }
+
+    if (match.status !== MomentMatchStatus.successful) {
+      throw new BadRequestException(
+        'Only successful group Moments support friendship consent',
+      );
+    }
+
+    if (
+      match.user_a_friend_consent === true &&
+      match.user_b_friend_consent === true
+    ) {
+      const { conversation } =
+        await this.friendsService.createAcceptedFriendshipFromMoment(
+          match.user_a_id,
+          match.user_b_id,
+        );
+
+      return {
+        friendshipCreated: true,
+        friendshipRemoved: false,
+        locked: true,
+        conversation,
+        moment: serializeMomentMatch(match),
+      };
+    }
+
+    const updated = await this.repository.recordFriendConsent(
+      matchId,
+      userId,
+      wantsFriend,
+    );
+
+    if (!updated) {
+      throw new ForbiddenException('You are not a participant of this Moment');
+    }
+
+    const bothWantFriend =
+      updated.user_a_friend_consent === true &&
+      updated.user_b_friend_consent === true;
+
+    if (!bothWantFriend) {
+      if (!wantsFriend) {
+        await this.friendsService.removeAcceptedFriendshipFromMoment(
+          updated.user_a_id,
+          updated.user_b_id,
+        );
+      }
+
+      return {
+        friendshipCreated: false,
+        friendshipRemoved: !wantsFriend,
+        locked: false,
+        moment: serializeMomentMatch(updated),
+      };
+    }
+
+    const { conversation } =
+      await this.friendsService.createAcceptedFriendshipFromMoment(
+        updated.user_a_id,
+        updated.user_b_id,
+      );
+
+    return {
+      friendshipCreated: true,
+      friendshipRemoved: false,
+      locked: true,
+      conversation,
+      moment: serializeMomentMatch(updated),
+    };
   }
 
   async getSettings() {
@@ -234,6 +345,33 @@ export class MatchingEngineService {
     dailyTimeOverride?: string,
     includeDebug = false,
   ): Promise<MomentRunResult> {
+    const [creation, status] = await Promise.all([
+      this.runCreationWork(now, dailyTimeOverride, includeDebug),
+      this.runStatusWork(now),
+    ]);
+
+    const result: MomentRunResult = {
+      scheduledAt: creation.scheduledAt,
+      expiresAt: creation.expiresAt,
+      created: creation.created,
+      activated: status.activated,
+      remindersSent: status.remindersSent,
+      expired: status.expired,
+      successful: status.successful,
+    };
+
+    if (creation.debug) {
+      result.debug = creation.debug;
+    }
+
+    return result;
+  }
+
+  async runCreationWork(
+    now = new Date(),
+    dailyTimeOverride?: string,
+    includeDebug = false,
+  ): Promise<MomentCreationRunResult> {
     const settings = await this.getRuntimeSettings(dailyTimeOverride);
     const creationWindow = this.getNextScheduleWindow(
       now,
@@ -250,34 +388,17 @@ export class MatchingEngineService {
           friend: 0,
           group: 0,
         },
-        activated: 0,
-        remindersSent: 0,
-        expired: 0,
-        successful: 0,
       };
     }
 
     const created = await this.createDailyMoments(creationWindow);
-
-    const activated = await this.activateDueMoments(now);
-
-    const [earlySuccessful, remindersSent, expiration] = await Promise.all([
-      this.markSuccessfulActiveMoments(now),
-      this.sendDueReminders(now, settings.reminderAfterMinutes),
-      this.expireDueMoments(now),
-    ]);
-
-    const result: MomentRunResult = {
+    const result: MomentCreationRunResult = {
       scheduledAt: creationWindow.scheduledAt,
       expiresAt: creationWindow.expiresAt,
       created: {
         friend: created.friend.created,
         group: created.group.created,
       },
-      activated,
-      remindersSent,
-      expired: expiration.expired,
-      successful: earlySuccessful + expiration.successful,
     };
 
     if (includeDebug) {
@@ -290,6 +411,37 @@ export class MatchingEngineService {
     }
 
     return result;
+  }
+
+  async runStatusWork(now = new Date()): Promise<MomentStatusRunResult> {
+    const settings = await this.getRuntimeSettings();
+
+    if (!settings.enabled) {
+      return {
+        activated: 0,
+        remindersSent: 0,
+        expired: 0,
+        successful: 0,
+      };
+    }
+
+    const activated = await this.activateDueMoments(now);
+    const [earlySuccessful, remindersSent, expiration] = await Promise.all([
+      this.markSuccessfulActiveMoments(now),
+      this.sendDueReminders(now, settings.reminderAfterMinutes),
+      this.expireDueMoments(now),
+    ]);
+
+    return {
+      activated,
+      remindersSent,
+      expired: expiration.expired,
+      successful: earlySuccessful + expiration.successful,
+    };
+  }
+
+  async hasStatusWorkCandidates(now = new Date()) {
+    return this.repository.hasStatusWorkCandidates(now);
   }
 
   private normalizeDailyTimeLocal(value: string) {

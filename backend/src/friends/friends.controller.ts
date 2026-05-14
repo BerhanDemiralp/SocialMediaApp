@@ -10,6 +10,7 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { FriendsService } from './friends.service';
@@ -17,6 +18,7 @@ import { SendFriendRequestDto } from './dto/send-friend-request.dto';
 
 @Controller('friends')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class FriendsController {
   constructor(private friendsService: FriendsService) {}
 

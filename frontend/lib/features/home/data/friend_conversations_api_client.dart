@@ -136,7 +136,7 @@ class FriendConversationsApiClient {
 
     final createdAtRaw = lastMessage['created_at'] as String?;
     final createdAt =
-        createdAtRaw != null ? DateTime.parse(createdAtRaw) : null;
+        createdAtRaw != null ? DateTime.parse(createdAtRaw).toLocal() : null;
     final conversationType = map['type'] as String? ?? 'friend';
     final groupName = map['groupName'] as String?;
 

@@ -7,6 +7,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -15,6 +16,7 @@ import { SearchUsersQueryDto } from './dto/search-users-query.dto';
 
 @Controller('users')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(private usersService: UsersService) {}
 

@@ -53,6 +53,34 @@ export class FriendsRepository {
     });
   }
 
+  async createOrAcceptFriendshipBetweenUsers(userAId: string, userBId: string) {
+    const existing = await this.findFriendshipBetweenUsers(userAId, userBId);
+
+    if (existing) {
+      return this.prisma.friendships.update({
+        where: { id: existing.id },
+        data: { status: 'accepted' },
+      });
+    }
+
+    return this.prisma.friendships.upsert({
+      where: {
+        requester_id_addressee_id: {
+          requester_id: userAId,
+          addressee_id: userBId,
+        },
+      },
+      create: {
+        requester_id: userAId,
+        addressee_id: userBId,
+        status: 'accepted',
+      },
+      update: {
+        status: 'accepted',
+      },
+    });
+  }
+
   async updateFriendshipStatus(id: string, status: string) {
     return this.prisma.friendships.update({
       where: { id },

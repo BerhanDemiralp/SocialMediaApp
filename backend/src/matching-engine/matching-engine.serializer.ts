@@ -15,6 +15,10 @@ export interface MomentMatchDto {
   id: string;
   matchType: MomentMatchType;
   status: MomentMatchStatus;
+  user_a_id: string;
+  user_b_id: string;
+  user_a_friend_consent: boolean | null;
+  user_b_friend_consent: boolean | null;
   scheduled_at: Date;
   expires_at: Date;
   conversation_id: string;
@@ -40,6 +44,10 @@ export function serializeMomentMatch(
     id: match.id,
     matchType: match.match_type,
     status: match.status,
+    user_a_id: match.user_a_id,
+    user_b_id: match.user_b_id,
+    user_a_friend_consent: match.user_a_friend_consent,
+    user_b_friend_consent: match.user_b_friend_consent,
     scheduled_at: match.scheduled_at,
     expires_at: match.expires_at,
     conversation_id: match.conversation_id,

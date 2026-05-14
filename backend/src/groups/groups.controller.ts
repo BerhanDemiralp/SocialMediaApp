@@ -9,6 +9,7 @@ import {
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { GroupsService } from './groups.service';
@@ -17,6 +18,7 @@ import { JoinGroupDto } from './dto/join-group.dto';
 
 @Controller('groups')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class GroupsController {
   constructor(private groupsService: GroupsService) {}
 

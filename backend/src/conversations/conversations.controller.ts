@@ -10,6 +10,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { ConversationType } from '@prisma/client';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -17,9 +18,12 @@ import { ConversationsService } from './conversations.service';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { GetConversationMessagesQueryDto } from './dto/get-conversation-messages-query.dto';
 import { CreateFriendConversationDto } from './dto/create-friend-conversation.dto';
+import { CreateConversationMessageDto } from './dto/create-conversation-message.dto';
+import { GrantWriteExceptionDto } from './dto/grant-write-exception.dto';
 
 @Controller('conversations')
 @UseGuards(AuthGuard)
+@ApiBearerAuth()
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
@@ -75,7 +79,7 @@ export class ConversationsController {
   async createConversationMessage(
     @Param('id') conversationId: string,
     @Request() req: ExpressRequest & { user?: { id: string } },
-    @Body() body: { content?: string },
+    @Body() body: CreateConversationMessageDto,
   ) {
     const userId = req.user?.id;
 
@@ -96,7 +100,7 @@ export class ConversationsController {
   async grantOneHourWriteException(
     @Param('id') conversationId: string,
     @Request() req: ExpressRequest & { user?: { id: string } },
-    @Body() body: { grantedToId?: string },
+    @Body() body: GrantWriteExceptionDto,
   ) {
     const userId = req.user?.id;
 

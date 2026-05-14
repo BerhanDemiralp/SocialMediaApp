@@ -82,7 +82,9 @@ describe('MatchingEngineRepository', () => {
     expect(prisma.moment_matches.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: MomentMatchStatus.active,
+          status: {
+            in: [MomentMatchStatus.active, MomentMatchStatus.successful],
+          },
           match_type: MomentMatchType.group,
           OR: [{ user_a_id: 'user-1' }, { user_b_id: 'user-1' }],
         }),
