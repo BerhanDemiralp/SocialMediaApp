@@ -82,6 +82,8 @@ interface MomentCreationStats {
 
 @Injectable()
 export class MatchingEngineService {
+  private statusWorkPromise?: Promise<MomentStatusRunResult>;
+
   constructor(
     private readonly repository: MatchingEngineRepository,
     private readonly conversationsService: ConversationsService,
@@ -90,7 +92,6 @@ export class MatchingEngineService {
   ) {}
 
   async getCurrentMomentsForUser(userId: string) {
-    await this.runStatusWork();
     const matches = await this.repository.findActiveMatchesForUser(userId);
     return matches.map(serializeMomentMatch);
   }
@@ -120,26 +121,6 @@ export class MatchingEngineService {
       scheduledDay,
     );
     return !!match;
-  }
-
-  async optInToGroupMoment(matchId: string, userId: string) {
-    const match = await this.repository.findByIdForParticipant(matchId, userId);
-
-    if (!match) {
-      throw new NotFoundException('Moment match not found');
-    }
-
-    if (match.match_type !== MomentMatchType.group) {
-      throw new BadRequestException('Only group Moments support opt-in');
-    }
-
-    const updated = await this.repository.recordOptIn(matchId, userId);
-
-    if (!updated) {
-      throw new ForbiddenException('You are not a participant of this Moment');
-    }
-
-    return serializeMomentMatch(updated);
   }
 
   async respondToGroupMomentFriendship(
@@ -345,10 +326,12 @@ export class MatchingEngineService {
     dailyTimeOverride?: string,
     includeDebug = false,
   ): Promise<MomentRunResult> {
-    const [creation, status] = await Promise.all([
-      this.runCreationWork(now, dailyTimeOverride, includeDebug),
-      this.runStatusWork(now),
-    ]);
+    const creation = await this.runCreationWork(
+      now,
+      dailyTimeOverride,
+      includeDebug,
+    );
+    const status = await this.runStatusWork(now);
 
     const result: MomentRunResult = {
       scheduledAt: creation.scheduledAt,
@@ -414,6 +397,20 @@ export class MatchingEngineService {
   }
 
   async runStatusWork(now = new Date()): Promise<MomentStatusRunResult> {
+    if (this.statusWorkPromise) {
+      return this.statusWorkPromise;
+    }
+
+    this.statusWorkPromise = this.runStatusWorkOnce(now);
+
+    try {
+      return await this.statusWorkPromise;
+    } finally {
+      this.statusWorkPromise = undefined;
+    }
+  }
+
+  private async runStatusWorkOnce(now = new Date()): Promise<MomentStatusRunResult> {
     const settings = await this.getRuntimeSettings();
 
     if (!settings.enabled) {
@@ -426,11 +423,12 @@ export class MatchingEngineService {
     }
 
     const activated = await this.activateDueMoments(now);
-    const [earlySuccessful, remindersSent, expiration] = await Promise.all([
-      this.markSuccessfulActiveMoments(now),
-      this.sendDueReminders(now, settings.reminderAfterMinutes),
-      this.expireDueMoments(now),
-    ]);
+    const earlySuccessful = await this.markSuccessfulActiveMoments(now);
+    const remindersSent = await this.sendDueReminders(
+      now,
+      settings.reminderAfterMinutes,
+    );
+    const expiration = await this.expireDueMoments(now);
 
     return {
       activated,
@@ -581,23 +579,21 @@ export class MatchingEngineService {
         continue;
       }
 
-      const [userAActive, userBActive, recentPairing] = await Promise.all([
-        this.hasActiveMatchForType(
-          userAId,
-          MomentMatchType.friend,
-          window.scheduledDay,
-        ),
-        this.hasActiveMatchForType(
-          userBId,
-          MomentMatchType.friend,
-          window.scheduledDay,
-        ),
-        this.repository.findRecentFriendPairing(
-          userAId,
-          userBId,
-          cooldownSince,
-        ),
-      ]);
+      const userAActive = await this.hasActiveMatchForType(
+        userAId,
+        MomentMatchType.friend,
+        window.scheduledDay,
+      );
+      const userBActive = await this.hasActiveMatchForType(
+        userBId,
+        MomentMatchType.friend,
+        window.scheduledDay,
+      );
+      const recentPairing = await this.repository.findRecentFriendPairing(
+        userAId,
+        userBId,
+        cooldownSince,
+      );
 
       if (userAActive || userBActive || recentPairing) {
         if (userAActive || userBActive) {
@@ -665,19 +661,20 @@ export class MatchingEngineService {
             continue;
           }
 
-          const [userAActive, userBActive, friendship] = await Promise.all([
-            this.hasActiveMatchForType(
-              userAId,
-              MomentMatchType.group,
-              window.scheduledDay,
-            ),
-            this.hasActiveMatchForType(
-              userBId,
-              MomentMatchType.group,
-              window.scheduledDay,
-            ),
-            this.repository.findAcceptedFriendshipBetween(userAId, userBId),
-          ]);
+          const userAActive = await this.hasActiveMatchForType(
+            userAId,
+            MomentMatchType.group,
+            window.scheduledDay,
+          );
+          const userBActive = await this.hasActiveMatchForType(
+            userBId,
+            MomentMatchType.group,
+            window.scheduledDay,
+          );
+          const friendship = await this.repository.findAcceptedFriendshipBetween(
+            userAId,
+            userBId,
+          );
 
           if (userAActive || userBActive || friendship) {
             if (userAActive || userBActive) {

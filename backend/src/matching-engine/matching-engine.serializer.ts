@@ -1,8 +1,4 @@
-import {
-  MomentMatchStatus,
-  MomentMatchType,
-  MomentOptInState,
-} from '@prisma/client';
+import { MomentMatchStatus, MomentMatchType } from '@prisma/client';
 import { MomentMatchWithRelations } from './matching-engine.repository';
 
 export interface MomentParticipantDto {
@@ -31,14 +27,11 @@ export interface MomentMatchDto {
 export function serializeMomentMatch(
   match: MomentMatchWithRelations,
 ): MomentMatchDto {
-  const hasMutualGroupOptIn =
-    match.user_a_opt_in === MomentOptInState.opted_in &&
-    match.user_b_opt_in === MomentOptInState.opted_in;
-
-  const writable =
-    match.match_type === MomentMatchType.friend ||
-    match.status === MomentMatchStatus.active ||
-    hasMutualGroupOptIn;
+  const now = new Date();
+  const isWithinMomentWindow =
+    match.scheduled_at.getTime() <= now.getTime() &&
+    match.expires_at.getTime() > now.getTime();
+  const writable = isWithinMomentWindow;
 
   return {
     id: match.id,

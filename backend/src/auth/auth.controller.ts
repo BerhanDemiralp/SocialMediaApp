@@ -2,8 +2,6 @@ import {
   Controller,
   Post,
   Body,
-  Headers,
-  UnauthorizedException,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -44,14 +42,4 @@ export class AuthController {
     return { user: req.user };
   }
 
-  @Post('logout')
-  @ApiBearerAuth()
-  async logout(@Headers('authorization') authHeader: string) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('No token provided');
-    }
-    // Currently Supabase signOut is session-based on the server side,
-    // but we still validate the presence of a bearer token at the edge.
-    return this.authService.logout();
-  }
 }

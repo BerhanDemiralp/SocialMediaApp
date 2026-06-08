@@ -434,7 +434,7 @@ describe('ConversationsService', () => {
     expect(prisma.messages.create).not.toHaveBeenCalled();
   });
 
-  it('rejects messages in expired group pair conversations without mutual opt-in', async () => {
+  it('rejects messages in expired group pair conversations', async () => {
     prisma.conversations.findUnique.mockResolvedValue({
       id: 'group-pair-conv-1',
       type: ConversationType.group_pair,
@@ -448,8 +448,6 @@ describe('ConversationsService', () => {
       id: 'moment-1',
       match_type: 'group',
       status: 'expired',
-      user_a_opt_in: 'pending',
-      user_b_opt_in: 'pending',
     });
 
     await expect(
@@ -462,7 +460,7 @@ describe('ConversationsService', () => {
     expect(prisma.messages.create).not.toHaveBeenCalled();
   });
 
-  it('allows expired group pair messages after mutual opt-in', async () => {
+  it('rejects expired group pair messages even after previous opt-in', async () => {
     prisma.conversations.findUnique.mockResolvedValue({
       id: 'group-pair-conv-1',
       type: ConversationType.group_pair,
@@ -479,20 +477,14 @@ describe('ConversationsService', () => {
       user_a_opt_in: 'opted_in',
       user_b_opt_in: 'opted_in',
     });
-    prisma.messages.create.mockResolvedValue({
-      id: 'msg-1',
-      conversation_id: 'group-pair-conv-1',
-      sender_id: 'user-1',
-      content: 'hello',
-      created_at: new Date(),
-    });
 
-    const result = await service.createMessageForConversation(
-      'group-pair-conv-1',
-      'user-1',
-      'hello',
-    );
-
-    expect(result.content).toBe('hello');
+    await expect(
+      service.createMessageForConversation(
+        'group-pair-conv-1',
+        'user-1',
+        'hello',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.messages.create).not.toHaveBeenCalled();
   });
 });

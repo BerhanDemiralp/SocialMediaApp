@@ -11,7 +11,6 @@ describe('AuthService', () => {
       auth: {
         signUp: jest.Mock;
         signInWithPassword: jest.Mock;
-        signOut: jest.Mock;
         getUser: jest.Mock;
       };
     };
@@ -29,7 +28,6 @@ describe('AuthService', () => {
         auth: {
           signUp: jest.fn(),
           signInWithPassword: jest.fn(),
-          signOut: jest.fn(),
           getUser: jest.fn(),
         },
       },
@@ -266,27 +264,6 @@ describe('AuthService', () => {
           username: 'taken_abcdef',
         },
       });
-    });
-  });
-
-  describe('logout', () => {
-    it('should call Supabase signOut and return success message', async () => {
-      supabaseService.client.auth.signOut.mockResolvedValue({ error: null });
-
-      const result = await service.logout();
-
-      expect(supabaseService.client.auth.signOut).toHaveBeenCalled();
-      expect(result).toEqual({ message: 'Logged out successfully' });
-    });
-
-    it('should throw BadRequestException when signOut returns error', async () => {
-      supabaseService.client.auth.signOut.mockResolvedValue({
-        error: { message: 'signout failed' },
-      });
-
-      await expect(service.logout()).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
     });
   });
 

@@ -49,7 +49,6 @@ describe('MatchingEngineService', () => {
     findAcceptedFriendshipBetween: jest.Mock;
     createMomentMatch: jest.Mock;
     findByIdForParticipant: jest.Mock;
-    recordOptIn: jest.Mock;
     findDueScheduledMatches: jest.Mock;
     findActiveMatchesForSuccessCheck: jest.Mock;
     getMatchingSettings: jest.Mock;
@@ -83,7 +82,6 @@ describe('MatchingEngineService', () => {
       findAcceptedFriendshipBetween: jest.fn(),
       createMomentMatch: jest.fn(),
       findByIdForParticipant: jest.fn(),
-      recordOptIn: jest.fn(),
       findDueScheduledMatches: jest.fn(),
       findActiveMatchesForSuccessCheck: jest.fn(),
       getMatchingSettings: jest.fn(),
@@ -511,18 +509,4 @@ describe('MatchingEngineService', () => {
     );
   });
 
-  it('records group moment opt-in for a participant', async () => {
-    const match = makeMatch({ match_type: MomentMatchType.group });
-    repository.findByIdForParticipant.mockResolvedValue(match);
-    repository.recordOptIn.mockResolvedValue({
-      ...match,
-      user_a_opt_in: MomentOptInState.opted_in,
-      user_b_opt_in: MomentOptInState.opted_in,
-    });
-
-    const result = await service.optInToGroupMoment('moment-1', 'user-1');
-
-    expect(repository.recordOptIn).toHaveBeenCalledWith('moment-1', 'user-1');
-    expect(result.writable).toBe(true);
-  });
 });

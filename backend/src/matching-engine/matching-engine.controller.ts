@@ -2,21 +2,18 @@ import {
   Controller,
   Body,
   ForbiddenException,
-  Get,
   Param,
-  Patch,
   Post,
+  Get,
   Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { ListMomentHistoryQueryDto } from './dto/list-moment-history-query.dto';
 import { RespondGroupMomentFriendshipDto } from './dto/respond-group-moment-friendship.dto';
-import { RunMatchingEngineDto } from './dto/run-matching-engine.dto';
-import { UpdateMatchingSettingsDto } from './dto/update-matching-settings.dto';
 import { MatchingEngineService } from './matching-engine.service';
 
 @Controller('matching-engine')
@@ -24,16 +21,6 @@ import { MatchingEngineService } from './matching-engine.service';
 @ApiBearerAuth()
 export class MatchingEngineController {
   constructor(private readonly matchingEngineService: MatchingEngineService) {}
-
-  @Get('settings')
-  async getSettings() {
-    return this.matchingEngineService.getSettings();
-  }
-
-  @Patch('settings')
-  async updateSettings(@Body() body: UpdateMatchingSettingsDto) {
-    return this.matchingEngineService.updateSettings(body);
-  }
 
   @Get('me/current')
   async getCurrentMoments(
@@ -64,61 +51,6 @@ export class MatchingEngineController {
       query.limit,
       query.cursor,
     );
-  }
-
-  @Post('run')
-  @ApiQuery({
-    name: 'debug',
-    required: false,
-    type: Boolean,
-    description: 'When true, includes candidate and skip debug counters.',
-  })
-  async runDueWork(
-    @Body() body?: RunMatchingEngineDto,
-    @Query('debug') debug?: string,
-  ) {
-    return this.matchingEngineService.runDueWork(
-      new Date(),
-      body?.dailyTimeLocal,
-      debug === 'true',
-    );
-  }
-
-  @Post('run-creation')
-  @ApiQuery({
-    name: 'debug',
-    required: false,
-    type: Boolean,
-    description: 'When true, includes candidate and skip debug counters.',
-  })
-  async runCreationWork(
-    @Body() body?: RunMatchingEngineDto,
-    @Query('debug') debug?: string,
-  ) {
-    return this.matchingEngineService.runCreationWork(
-      new Date(),
-      body?.dailyTimeLocal,
-      debug === 'true',
-    );
-  }
-
-  @Post('run-status')
-  async runStatusWork() {
-    return this.matchingEngineService.runStatusWork(new Date());
-  }
-
-  @Post(':matchId/opt-in')
-  async optInToGroupMoment(
-    @Param('matchId') matchId: string,
-    @Request() req: ExpressRequest & { user?: { id: string } },
-  ) {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      throw new ForbiddenException('Authenticated user context is missing');
-    }
-
-    return this.matchingEngineService.optInToGroupMoment(matchId, userId);
   }
 
   @Post(':matchId/friendship-response')

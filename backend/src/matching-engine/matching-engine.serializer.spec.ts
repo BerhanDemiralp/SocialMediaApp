@@ -2,7 +2,6 @@ import {
   ConversationType,
   MomentMatchStatus,
   MomentMatchType,
-  MomentOptInState,
 } from '@prisma/client';
 import { MomentMatchWithRelations } from './matching-engine.repository';
 import { serializeMomentMatch } from './matching-engine.serializer';
@@ -22,8 +21,8 @@ function makeMatch(
     scheduled_at: new Date('2026-05-05T17:00:00.000Z'),
     expires_at: new Date('2026-05-05T18:00:00.000Z'),
     reminder_sent_at: null,
-    user_a_opt_in: MomentOptInState.pending,
-    user_b_opt_in: MomentOptInState.pending,
+    user_a_opt_in: 'pending',
+    user_b_opt_in: 'pending',
     user_a_friend_consent: null,
     user_b_friend_consent: null,
     created_at: new Date('2026-05-05T17:00:00.000Z'),
@@ -59,26 +58,27 @@ describe('serializeMomentMatch', () => {
     });
   });
 
-  it('marks friend moments writable regardless of status', () => {
+  it('marks current moment windows writable', () => {
+    const now = Date.now();
     const result = serializeMomentMatch(
       makeMatch({
-        match_type: MomentMatchType.friend,
-        group_id: null,
-        group: null,
+        status: MomentMatchStatus.successful,
+        scheduled_at: new Date(now - 60_000),
+        expires_at: new Date(now + 60_000),
       }),
     );
 
     expect(result.writable).toBe(true);
   });
 
-  it('marks group moments writable after mutual opt-in', () => {
+  it('does not make expired moments writable from previous opt-in state', () => {
     const result = serializeMomentMatch(
       makeMatch({
-        user_a_opt_in: MomentOptInState.opted_in,
-        user_b_opt_in: MomentOptInState.opted_in,
+        user_a_opt_in: 'opted_in',
+        user_b_opt_in: 'opted_in',
       }),
     );
 
-    expect(result.writable).toBe(true);
+    expect(result.writable).toBe(false);
   });
 });

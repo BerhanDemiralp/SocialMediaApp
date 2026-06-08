@@ -1,8 +1,4 @@
-import {
-  MomentMatchStatus,
-  MomentMatchType,
-  MomentOptInState,
-} from '@prisma/client';
+import { MomentMatchStatus, MomentMatchType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MatchingEngineRepository } from './matching-engine.repository';
 
@@ -133,28 +129,6 @@ describe('MatchingEngineRepository', () => {
         data: { reminder_sent_at: sentAt },
       }),
     );
-  });
-
-  it('records opt-in only for participants', async () => {
-    prisma.moment_matches.findUnique.mockResolvedValue({
-      user_a_id: 'user-1',
-      user_b_id: 'user-2',
-    });
-    prisma.moment_matches.update.mockResolvedValue({ id: 'moment-1' });
-
-    await repository.recordOptIn('moment-1', 'user-2');
-
-    expect(prisma.moment_matches.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { user_b_opt_in: MomentOptInState.opted_in },
-      }),
-    );
-
-    prisma.moment_matches.update.mockClear();
-    await expect(
-      repository.recordOptIn('moment-1', 'user-3'),
-    ).resolves.toBeNull();
-    expect(prisma.moment_matches.update).not.toHaveBeenCalled();
   });
 
   it('aggregates message stats by sender for a match window', async () => {

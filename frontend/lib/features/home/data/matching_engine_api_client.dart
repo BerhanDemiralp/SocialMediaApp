@@ -214,29 +214,6 @@ class MatchingEngineApiClient {
         .toList();
   }
 
-  Future<void> optInToGroupMoment(String matchId) async {
-    final session = _supabaseClient.auth.currentSession;
-    final token = session?.accessToken;
-
-    if (token == null) {
-      throw StateError('No auth token available for Moment requests.');
-    }
-
-    final response = await _httpClient.post(
-      Uri.parse('${AppEnv.apiBaseUrl}/matching-engine/$matchId/opt-in'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw StateError(
-        'Failed to opt in to Moment (status ${response.statusCode}).',
-      );
-    }
-  }
-
   Future<bool> respondToGroupMomentFriendship({
     required String matchId,
     required bool wantsFriend,

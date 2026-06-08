@@ -294,10 +294,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         const SnackBar(content: Text('Arkadaslik cevabi guncellenemedi.')),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSubmittingFriendshipResponse = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSubmittingFriendshipResponse = false;
+        });
+      }
     }
   }
 

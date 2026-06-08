@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
@@ -102,16 +98,6 @@ export class AuthService {
       },
       session: data.session,
     };
-  }
-
-  async logout() {
-    const { error } = await this.supabaseService.client.auth.signOut();
-
-    if (error) {
-      throw new BadRequestException(error.message);
-    }
-
-    return { message: 'Logged out successfully' };
   }
 
   async validateToken(token: string) {

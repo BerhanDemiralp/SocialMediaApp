@@ -3,7 +3,7 @@ import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class UpdateMatchingSettingsDto {
   @ApiPropertyOptional({
-    example: '19:00',
+    example: '14:00',
     description: 'Daily matching time in HH:mm local time format.',
   })
   @IsOptional()

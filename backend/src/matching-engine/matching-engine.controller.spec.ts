@@ -7,20 +7,12 @@ describe('MatchingEngineController', () => {
   let service: {
     getCurrentMomentsForUser: jest.Mock;
     getMomentHistoryForUser: jest.Mock;
-    runDueWork: jest.Mock;
-    optInToGroupMoment: jest.Mock;
-    getSettings: jest.Mock;
-    updateSettings: jest.Mock;
   };
 
   beforeEach(() => {
     service = {
       getCurrentMomentsForUser: jest.fn(),
       getMomentHistoryForUser: jest.fn(),
-      runDueWork: jest.fn(),
-      optInToGroupMoment: jest.fn(),
-      getSettings: jest.fn(),
-      updateSettings: jest.fn(),
     };
 
     controller = new MatchingEngineController(
@@ -55,73 +47,6 @@ describe('MatchingEngineController', () => {
       'user-1',
       10,
       'cursor-1',
-    );
-  });
-
-  it('runs due matching work', async () => {
-    service.runDueWork.mockResolvedValue({ created: { friend: 0, group: 0 } });
-
-    const result = await controller.runDueWork(
-      { dailyTimeLocal: '19:00' },
-      'true',
-    );
-
-    expect(result).toEqual({ created: { friend: 0, group: 0 } });
-    expect(service.runDueWork).toHaveBeenCalledWith(
-      expect.any(Date),
-      '19:00',
-      true,
-    );
-  });
-
-  it('returns matching settings', async () => {
-    service.getSettings.mockResolvedValue({
-      dailyTimeLocal: '19:00',
-      timezone: 'Europe/Istanbul',
-    });
-
-    const result = await controller.getSettings();
-
-    expect(result).toEqual({
-      dailyTimeLocal: '19:00',
-      timezone: 'Europe/Istanbul',
-    });
-    expect(service.getSettings).toHaveBeenCalled();
-  });
-
-  it('updates matching settings', async () => {
-    service.updateSettings.mockResolvedValue({
-      dailyTimeLocal: '20:30',
-      timezone: 'Europe/Istanbul',
-    });
-
-    const result = await controller.updateSettings({
-      dailyTimeLocal: '20:30',
-      timezone: 'Europe/Istanbul',
-    });
-
-    expect(result).toEqual({
-      dailyTimeLocal: '20:30',
-      timezone: 'Europe/Istanbul',
-    });
-    expect(service.updateSettings).toHaveBeenCalledWith({
-      dailyTimeLocal: '20:30',
-      timezone: 'Europe/Istanbul',
-    });
-  });
-
-  it('records group moment opt-in for the authenticated participant', async () => {
-    service.optInToGroupMoment.mockResolvedValue({ id: 'moment-1' });
-
-    const result = await controller.optInToGroupMoment(
-      'moment-1',
-      { user: { id: 'user-1' } } as any,
-    );
-
-    expect(result).toEqual({ id: 'moment-1' });
-    expect(service.optInToGroupMoment).toHaveBeenCalledWith(
-      'moment-1',
-      'user-1',
     );
   });
 

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -148,11 +148,11 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
             size: 44,
             color: theme.colorScheme.primary,
           ),
-          title: const Text('Pairing başarılı'),
+          title: const Text('Moment başarıyla tamamlandı'),
           content: Text(
             isGroupMoment
-                ? '$otherParticipantName ile pairing başarılı. Arkadaş eklemek ister misin?'
-                : '$otherParticipantName ile pairing başarıyla tamamlandı.',
+                ? '$otherParticipantName ile Moment başarıyla tamamlandı. Arkadaş eklemek ister misin?'
+                : '$otherParticipantName ile Moment başarıyla tamamlandı.',
           ),
           actions: isGroupMoment
               ? [
@@ -161,7 +161,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
                       _submitFriendshipResponse(moment, false);
                       Navigator.of(context).pop();
                     },
-                    child: const Text('Hayır'),
+                    child: const Text('HayÄ±r'),
                   ),
                   FilledButton(
                     onPressed: () {
@@ -188,6 +188,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
     bool wantsFriend,
   ) async {
     _handledFriendConsentMomentIds.add(moment.id);
+    _acknowledgedSuccessfulMomentIds.add(moment.id);
 
     try {
       final created = await ref
@@ -212,18 +213,19 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
 
       if (created) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Arkadaşlık eklendi.')),
+          const SnackBar(content: Text('ArkadaÅŸlÄ±k eklendi.')),
         );
       }
     } catch (_) {
       _handledFriendConsentMomentIds.remove(moment.id);
+      _acknowledgedSuccessfulMomentIds.remove(moment.id);
 
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Arkadaşlık cevabı gönderilemedi.')),
+        const SnackBar(content: Text('ArkadaÅŸlÄ±k cevabÄ± gÃ¶nderilemedi.')),
       );
     }
   }
@@ -377,7 +379,7 @@ class _ActiveMomentsSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Active pairings',
+          'Active Moments',
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
@@ -410,6 +412,7 @@ class _MomentCard extends ConsumerWidget {
     final label = moment.isGroup ? 'Group Moment' : 'Friend Moment';
     final expires =
         '${moment.expiresAt.hour}:${moment.expiresAt.minute.toString().padLeft(2, '0')}';
+    final isSuccessful = moment.status == 'successful';
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -424,7 +427,15 @@ class _MomentCard extends ConsumerWidget {
           child: Icon(moment.isGroup ? Icons.groups_2 : Icons.person),
         ),
         title: Text(moment.otherParticipantName(currentUserId)),
-        subtitle: Text('$label - active until $expires'),
+        subtitle: isSuccessful
+            ? Text(
+                '$label - Successful',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : Text('$label - active until $expires'),
         trailing: IconButton(
           icon: const Icon(Icons.chat_bubble_outline),
           tooltip: 'Open chat',

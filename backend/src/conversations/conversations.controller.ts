@@ -19,7 +19,6 @@ import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { GetConversationMessagesQueryDto } from './dto/get-conversation-messages-query.dto';
 import { CreateFriendConversationDto } from './dto/create-friend-conversation.dto';
 import { CreateConversationMessageDto } from './dto/create-conversation-message.dto';
-import { GrantWriteExceptionDto } from './dto/grant-write-exception.dto';
 
 @Controller('conversations')
 @UseGuards(AuthGuard)
@@ -93,25 +92,6 @@ export class ConversationsController {
       conversationId,
       userId,
       content,
-    );
-  }
-
-  @Post(':id/write-exceptions')
-  async grantOneHourWriteException(
-    @Param('id') conversationId: string,
-    @Request() req: ExpressRequest & { user?: { id: string } },
-    @Body() body: GrantWriteExceptionDto,
-  ) {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      throw new ForbiddenException('Authenticated user context is missing');
-    }
-
-    return this.conversationsService.grantOneHourWriteException(
-      conversationId,
-      userId,
-      body.grantedToId,
     );
   }
 

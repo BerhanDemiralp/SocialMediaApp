@@ -1,9 +1,10 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { MatchingEngineService } from './matching-engine.service';
 
-const DEFAULT_IDLE_INTERVAL_MS = 5 * 60_000;
+const DEFAULT_WORKER_INTERVAL_MS = 60_000;
 const DEFAULT_ACTIVE_INTERVAL_MS = 30_000;
-const DEFAULT_WORKER_INITIAL_DELAY_MS = 5_000;
+const DEFAULT_INITIAL_DELAY_MS = 5_000;
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 @Injectable()
 export class MatchingEngineSchedulerService
@@ -12,34 +13,23 @@ export class MatchingEngineSchedulerService
   private timer?: NodeJS.Timeout;
   private isRunning = false;
   private stopped = false;
-  private currentMode: 'idle' | 'active' = 'idle';
+  private lastCreationWindowKey?: string;
 
   constructor(private readonly matchingEngineService: MatchingEngineService) {}
 
-  async onModuleInit() {
+  onModuleInit() {
     if (process.env.MOMENT_WORKER_DISABLED === '1') {
       console.log('[matching-worker] disabled');
       return;
     }
 
-    const idleIntervalMs = this.getPositiveNumberFromEnv(
-      'MOMENT_WORKER_IDLE_INTERVAL_MS',
-      DEFAULT_IDLE_INTERVAL_MS,
-    );
-    const activeIntervalMs = this.getPositiveNumberFromEnv(
-      'MOMENT_WORKER_ACTIVE_INTERVAL_MS',
-      DEFAULT_ACTIVE_INTERVAL_MS,
-    );
     const initialDelayMs = this.getPositiveNumberFromEnv(
       'MOMENT_WORKER_INITIAL_DELAY_MS',
-      DEFAULT_WORKER_INITIAL_DELAY_MS,
+      DEFAULT_INITIAL_DELAY_MS,
     );
 
-    console.log(
-      `[matching-worker] status-only idle=${idleIntervalMs}ms active=${activeIntervalMs}ms`,
-    );
-
-    this.scheduleNextTick(initialDelayMs, idleIntervalMs, activeIntervalMs);
+    console.log('[matching-worker] started as single lifecycle worker');
+    this.scheduleNextTick(initialDelayMs);
   }
 
   onModuleDestroy() {
@@ -51,11 +41,7 @@ export class MatchingEngineSchedulerService
     }
   }
 
-  private scheduleNextTick(
-    delayMs: number,
-    idleIntervalMs: number,
-    activeIntervalMs: number,
-  ) {
+  private scheduleNextTick(delayMs: number) {
     if (this.stopped) {
       return;
     }
@@ -65,75 +51,111 @@ export class MatchingEngineSchedulerService
     }
 
     this.timer = setTimeout(() => {
-      void this.tick(idleIntervalMs, activeIntervalMs);
-    }, Math.max(1_000, delayMs));
+      void this.tick();
+    }, Math.max(1_000, Math.min(delayMs, MAX_TIMEOUT_MS)));
   }
 
-  private async tick(idleIntervalMs: number, activeIntervalMs: number) {
-    if (this.stopped) {
-      return;
-    }
-
-    let nextDelayMs = idleIntervalMs;
+  private async tick() {
+    let nextDelayMs = this.getPositiveNumberFromEnv(
+      'MOMENT_WORKER_INTERVAL_MS',
+      DEFAULT_WORKER_INTERVAL_MS,
+    );
 
     try {
-      const hasCandidates = await this.runOnce();
-      nextDelayMs = hasCandidates ? activeIntervalMs : idleIntervalMs;
-      this.setMode(
-        hasCandidates ? 'active' : 'idle',
-        hasCandidates ? activeIntervalMs : idleIntervalMs,
-      );
+      nextDelayMs = await this.runOnce(nextDelayMs);
     } finally {
-      this.scheduleNextTick(nextDelayMs, idleIntervalMs, activeIntervalMs);
+      this.scheduleNextTick(nextDelayMs);
     }
   }
 
-  private async runOnce() {
+  private async runOnce(defaultDelayMs: number) {
+    if (this.stopped) {
+      return defaultDelayMs;
+    }
+
     if (this.isRunning) {
-      return this.currentMode === 'active';
+      return this.getPositiveNumberFromEnv(
+        'MOMENT_WORKER_ACTIVE_INTERVAL_MS',
+        DEFAULT_ACTIVE_INTERVAL_MS,
+      );
     }
 
     this.isRunning = true;
 
     try {
+      const now = new Date();
       const settings = await this.matchingEngineService.getRuntimeSettings();
 
       if (!settings.enabled) {
-        return false;
+        return defaultDelayMs;
       }
 
-      const hasCandidates =
-        await this.matchingEngineService.hasStatusWorkCandidates(new Date());
+      const creationWindow = this.matchingEngineService.getNextScheduleWindow(
+        now,
+        settings.dailyTimeLocal,
+        settings.timezone,
+        settings.activeDurationMinutes,
+      );
+      const inCreationWindow =
+        now.getTime() >= creationWindow.scheduledAt.getTime() &&
+        now.getTime() < creationWindow.expiresAt.getTime();
+      const creationWindowKey = creationWindow.scheduledAt.toISOString();
 
-      if (!hasCandidates) {
-        return false;
+      if (
+        inCreationWindow &&
+        this.lastCreationWindowKey !== creationWindowKey
+      ) {
+        const creation = await this.matchingEngineService.runCreationWork(now);
+        this.lastCreationWindowKey = creationWindowKey;
+
+        if (creation.created.friend > 0 || creation.created.group > 0) {
+          console.log('[matching-worker] creation result', creation);
+        }
       }
 
-      const result = await this.matchingEngineService.runStatusWork(new Date());
-      if (this.shouldLogResult(result)) {
-        console.log('[matching-worker] status result', result);
+      const hasStatusCandidates =
+        await this.matchingEngineService.hasStatusWorkCandidates(now);
+
+      if (hasStatusCandidates) {
+        const status = await this.matchingEngineService.runStatusWork(now);
+
+        if (this.shouldLogStatusResult(status)) {
+          console.log('[matching-worker] status result', status);
+        }
       }
 
-      return this.matchingEngineService.hasStatusWorkCandidates(new Date());
+      return this.getNextDelayMs(
+        now,
+        creationWindow.scheduledAt,
+        hasStatusCandidates,
+        defaultDelayMs,
+      );
     } catch (error) {
-      console.error('[matching-worker] status check failed', error);
-      return false;
+      console.error('[matching-worker] run failed', error);
+      return defaultDelayMs;
     } finally {
       this.isRunning = false;
     }
   }
 
-  private setMode(mode: 'idle' | 'active', intervalMs: number) {
-    if (this.currentMode === mode) {
-      return;
+  private getNextDelayMs(
+    now: Date,
+    nextCreationAt: Date,
+    hasStatusCandidates: boolean,
+    defaultDelayMs: number,
+  ) {
+    const activeIntervalMs = this.getPositiveNumberFromEnv(
+      'MOMENT_WORKER_ACTIVE_INTERVAL_MS',
+      DEFAULT_ACTIVE_INTERVAL_MS,
+    );
+    const baseDelayMs = hasStatusCandidates ? activeIntervalMs : defaultDelayMs;
+    const msUntilCreation = nextCreationAt.getTime() - now.getTime();
+
+    if (msUntilCreation > 0) {
+      return Math.min(baseDelayMs, msUntilCreation);
     }
 
-    this.currentMode = mode;
-    console.log(
-      mode === 'active'
-        ? `[matching-worker] active match found; checking every ${intervalMs}ms`
-        : `[matching-worker] no active matches; checking every ${intervalMs}ms`,
-    );
+    return baseDelayMs;
   }
 
   private getPositiveNumberFromEnv(name: string, fallback: number) {
@@ -141,7 +163,7 @@ export class MatchingEngineSchedulerService
     return Number.isFinite(value) && value > 0 ? value : fallback;
   }
 
-  private shouldLogResult(result: {
+  private shouldLogStatusResult(result: {
     activated: number;
     remindersSent: number;
     expired: number;

@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import {
   MomentMatchStatus,
   MomentMatchType,
-  MomentOptInState,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -208,15 +207,24 @@ export class MatchingEngineRepository {
   async hasStatusWorkCandidates(now: Date) {
     const count = await this.prisma.moment_matches.count({
       where: {
-        status: {
-          in: [
-            MomentMatchStatus.scheduled,
-            MomentMatchStatus.active,
-            MomentMatchStatus.successful,
-          ],
-        },
-        scheduled_at: { lte: now },
-        expires_at: { gt: now },
+        OR: [
+          {
+            status: MomentMatchStatus.scheduled,
+            scheduled_at: { lte: now },
+            expires_at: { gt: now },
+          },
+          {
+            status: {
+              in: [MomentMatchStatus.scheduled, MomentMatchStatus.active],
+            },
+            expires_at: { lte: now },
+          },
+          {
+            status: MomentMatchStatus.active,
+            scheduled_at: { lte: now },
+            expires_at: { gt: now },
+          },
+        ],
       },
     });
 
@@ -290,34 +298,6 @@ export class MatchingEngineRepository {
     return this.prisma.moment_matches.update({
       where: { id: matchId },
       data: { reminder_sent_at: sentAt },
-      include: momentMatchInclude,
-    });
-  }
-
-  async recordOptIn(matchId: string, userId: string) {
-    const match = await this.prisma.moment_matches.findUnique({
-      where: { id: matchId },
-      select: { user_a_id: true, user_b_id: true },
-    });
-
-    if (!match) {
-      return null;
-    }
-
-    const data =
-      match.user_a_id === userId
-        ? { user_a_opt_in: MomentOptInState.opted_in }
-        : match.user_b_id === userId
-          ? { user_b_opt_in: MomentOptInState.opted_in }
-          : null;
-
-    if (!data) {
-      return null;
-    }
-
-    return this.prisma.moment_matches.update({
-      where: { id: matchId },
-      data,
       include: momentMatchInclude,
     });
   }

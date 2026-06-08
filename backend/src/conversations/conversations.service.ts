@@ -9,7 +9,6 @@ import {
   ConversationType,
   MomentMatchStatus,
   MomentMatchType,
-  MomentOptInState,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -260,32 +259,6 @@ export class ConversationsService {
     });
   }
 
-  async grantOneHourWriteException(
-    conversationId: string,
-    userId: string,
-    grantedToId?: string,
-    now = new Date(),
-  ) {
-    await this.getAuthorizedConversation(conversationId, userId);
-    const expiresAt = new Date(now.getTime() + 60 * 60 * 1000);
-
-    await this.prisma.conversation_write_exceptions.create({
-      data: {
-        conversation_id: conversationId,
-        granted_by_id: userId,
-        granted_to_id: grantedToId ?? null,
-        expires_at: expiresAt,
-      },
-    });
-
-    await this.prisma.conversations.update({
-      where: { id: conversationId },
-      data: { mode: ConversationMode.exception },
-    });
-
-    return { expires_at: expiresAt };
-  }
-
   async getConversationMessages(
     conversationId: string,
     userId: string,
@@ -473,19 +446,13 @@ export class ConversationsService {
       };
     }
 
-    const hasMutualOptIn =
-      match.user_a_opt_in === MomentOptInState.opted_in &&
-      match.user_b_opt_in === MomentOptInState.opted_in;
-    const isActiveMoment =
-      match.status === MomentMatchStatus.active ||
-      this.isWithinMomentWindow(match, new Date());
+    const isActiveMoment = this.isWithinMomentWindow(match, new Date());
 
     return {
-      writable: isActiveMoment || hasMutualOptIn,
-      mode:
-        isActiveMoment || hasMutualOptIn
-          ? ConversationMode.active_moment
-          : ConversationMode.read_only,
+      writable: isActiveMoment,
+      mode: isActiveMoment
+        ? ConversationMode.active_moment
+        : ConversationMode.read_only,
     };
   }
 
@@ -654,8 +621,6 @@ export class ConversationsService {
       status: MomentMatchStatus;
       scheduled_at: Date;
       expires_at: Date;
-      user_a_opt_in: MomentOptInState;
-      user_b_opt_in: MomentOptInState;
     }[];
   }) {
     const lastMessage = conversation.messages[0] ?? null;
@@ -694,8 +659,6 @@ export class ConversationsService {
       status: MomentMatchStatus;
       scheduled_at: Date;
       expires_at: Date;
-      user_a_opt_in: MomentOptInState;
-      user_b_opt_in: MomentOptInState;
     }[];
   }) {
     if (conversation.type === ConversationType.group) {
@@ -717,14 +680,12 @@ export class ConversationsService {
     }
 
     if (match.match_type === MomentMatchType.friend) {
-      return true;
+      return this.isWithinMomentWindow(match, new Date());
     }
 
     return (
-      match.status === MomentMatchStatus.active ||
-      this.isWithinMomentWindow(match, new Date()) ||
-      (match.user_a_opt_in === MomentOptInState.opted_in &&
-        match.user_b_opt_in === MomentOptInState.opted_in)
+      match.status === MomentMatchStatus.active &&
+      this.isWithinMomentWindow(match, new Date())
     );
   }
 }
