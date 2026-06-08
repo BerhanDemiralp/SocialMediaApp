@@ -8,6 +8,7 @@ import '../data/friends_api_client.dart';
 import '../data/user_search_api_client.dart';
 import '../../../core/analytics/app_analytics.dart';
 import '../data/home_messaging_repository.dart';
+import 'app_avatar.dart';
 import 'home_messages_screen.dart';
 import 'user_action_tile.dart';
 
@@ -343,12 +344,9 @@ class HomeFriendsScreen extends ConsumerWidget {
                                   children: items
                                       .map(
                                         (r) => ListTile(
-                                          leading: CircleAvatar(
-                                            child: Text(
-                                              r.username.isNotEmpty
-                                                  ? r.username[0].toUpperCase()
-                                                  : '?',
-                                            ),
+                                          leading: AppAvatar(
+                                            username: r.username,
+                                            avatarUrl: r.avatarUrl,
                                           ),
                                           title: Text(r.username),
                                           subtitle: const Text(
@@ -489,12 +487,9 @@ class HomeFriendsScreen extends ConsumerWidget {
                               children: items
                                   .map(
                                     (r) => ListTile(
-                                      leading: CircleAvatar(
-                                        child: Text(
-                                          r.username.isNotEmpty
-                                              ? r.username[0].toUpperCase()
-                                              : '?',
-                                        ),
+                                      leading: AppAvatar(
+                                        username: r.username,
+                                        avatarUrl: r.avatarUrl,
                                       ),
                                       title: Text(r.username),
                                       subtitle: const Text('Outgoing request'),

@@ -22,23 +22,15 @@ class AuthRepository {
   final SupabaseClient _client;
   final http.Client _httpClient;
 
-  Future<AuthResponse> signInWithEmail(
-    String email,
-    String password,
-  ) async {
+  Future<AuthResponse> signInWithEmail(String email, String password) async {
     final uri = Uri.parse('${AppEnv.apiBaseUrl}/auth/login');
 
     http.Response response;
     try {
       response = await _httpClient.post(
         uri,
-        headers: const {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
       );
     } catch (_) {
       throw StateError(
@@ -67,10 +59,7 @@ class AuthRepository {
       throw StateError(errorMessage);
     }
 
-    return _client.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    return _client.auth.signInWithPassword(email: email, password: password);
   }
 
   /// Register via the NestJS `/auth/register` endpoint and then sign in
@@ -86,9 +75,7 @@ class AuthRepository {
     try {
       response = await _httpClient.post(
         uri,
-        headers: const {
-          'Content-Type': 'application/json',
-        },
+        headers: const {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -161,6 +148,32 @@ class AuthRepository {
 
   Future<void> sendPasswordResetEmail(String email) {
     return _client.auth.resetPasswordForEmail(email);
+  }
+
+  Future<void> updatePassword(String password) {
+    return _client.auth.updateUser(UserAttributes(password: password));
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final email = _client.auth.currentUser?.email;
+
+    if (email == null || email.isEmpty) {
+      throw StateError('No email found for the current user.');
+    }
+
+    try {
+      await _client.auth.signInWithPassword(
+        email: email,
+        password: currentPassword,
+      );
+    } catch (_) {
+      throw StateError('Current password is incorrect.');
+    }
+
+    await updatePassword(newPassword);
   }
 
   Session? get currentSession => _client.auth.currentSession;

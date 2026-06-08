@@ -141,6 +141,8 @@ describe('ConversationsService', () => {
         id: 'msg-1',
         content: 'hello',
         created_at: now,
+        sender_id: null,
+        sender_username: null,
       },
     });
     expect(result.nextCursor).toBeNull();
@@ -373,6 +375,8 @@ describe('ConversationsService', () => {
         id: 'msg-1',
         content: 'hello group',
         created_at: now,
+        sender_id: null,
+        sender_username: null,
       },
     });
   });

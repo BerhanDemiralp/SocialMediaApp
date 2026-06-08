@@ -49,6 +49,7 @@ export class ConversationsService {
           where: { deleted_at: null },
           orderBy: { created_at: 'desc' },
           take: 1,
+          include: { sender: true },
         },
         group: true,
         moment_matches: {
@@ -158,6 +159,7 @@ export class ConversationsService {
             where: { deleted_at: null },
             orderBy: { created_at: 'desc' },
             take: 1,
+            include: { sender: true },
           },
           group: true,
           moment_matches: {
@@ -206,6 +208,7 @@ export class ConversationsService {
             where: { deleted_at: null },
             orderBy: { created_at: 'desc' },
             take: 1,
+            include: { sender: true },
           },
           group: true,
           moment_matches: {
@@ -612,7 +615,13 @@ export class ConversationsService {
     participants: {
       user: { id: string; username: string; avatar_url: string | null };
     }[];
-    messages: { id: string; content: string; created_at: Date }[];
+    messages: {
+      id: string;
+      content: string;
+      created_at: Date;
+      sender_id?: string | null;
+      sender?: { id: string; username: string } | null;
+    }[];
     group?: { id: string; name: string } | null;
     mode?: ConversationMode | null;
     write_exceptions?: { id: string; expires_at: Date }[];
@@ -645,6 +654,8 @@ export class ConversationsService {
             id: lastMessage.id,
             content: lastMessage.content,
             created_at: lastMessage.created_at,
+            sender_id: lastMessage.sender_id ?? null,
+            sender_username: lastMessage.sender?.username ?? null,
           }
         : null,
     };

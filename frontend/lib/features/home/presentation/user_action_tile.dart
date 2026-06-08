@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_avatar.dart';
+
 /// Pure UI user card used across the app.
 /// It does not know about repositories or providers.
 /// All behavior is injected via callbacks.
@@ -62,15 +64,7 @@ class UserActionTile extends StatelessWidget {
     }
 
     return ListTile(
-      leading: CircleAvatar(
-        child: avatarUrl == null
-            ? Text(
-                username.isNotEmpty
-                    ? username[0].toUpperCase()
-                    : '?',
-              )
-            : null,
-      ),
+      leading: AppAvatar(username: username, avatarUrl: avatarUrl),
       title: Text(isSelf ? '$username (You)' : username),
       trailing: trailing,
       onTap: () async {

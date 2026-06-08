@@ -9,14 +9,6 @@ import '../../chat/presentation/chat_screen.dart';
 import 'home_friends_screen.dart';
 import 'home_messages_screen.dart';
 
-/// New Home tab UI skeleton.
-///
-/// This currently uses static / placeholder content for:
-/// - Daily message
-/// - Games
-/// - Feed items
-///
-/// Real data can be wired later from repositories.
 class HomeMainScreen extends ConsumerStatefulWidget {
   const HomeMainScreen({super.key});
 
@@ -28,7 +20,6 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
   Timer? _successPollTimer;
   Timer? _activeMomentsRefreshTimer;
   final Set<String> _acknowledgedSuccessfulMomentIds = <String>{};
-  final Set<String> _handledFriendConsentMomentIds = <String>{};
   bool _hasSeededSuccessfulMoments = false;
   bool _isCheckingSuccessfulMoments = false;
 
@@ -78,37 +69,20 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
       final successfulMoments = history
           .where((moment) => moment.status == 'successful')
           .toList();
-      final pendingConsentMomentIds = successfulMoments
-          .where((moment) => moment.hasPendingFriendConsentFor(currentUserId))
-          .map((moment) => moment.id)
-          .toSet();
 
       if (!_hasSeededSuccessfulMoments) {
         _acknowledgedSuccessfulMomentIds.addAll(
-          successfulMoments
-              .where((moment) => !pendingConsentMomentIds.contains(moment.id))
-              .map((moment) => moment.id),
+          successfulMoments.map((moment) => moment.id),
         );
         _hasSeededSuccessfulMoments = true;
       }
 
       for (final moment in successfulMoments) {
-        final hasPendingFriendConsent =
-            moment.hasPendingFriendConsentFor(currentUserId);
-
-        if (hasPendingFriendConsent &&
-            _handledFriendConsentMomentIds.contains(moment.id)) {
+        if (_acknowledgedSuccessfulMomentIds.contains(moment.id)) {
           continue;
         }
 
-        if (!hasPendingFriendConsent &&
-            _acknowledgedSuccessfulMomentIds.contains(moment.id)) {
-          continue;
-        }
-
-        if (!hasPendingFriendConsent) {
-          _acknowledgedSuccessfulMomentIds.add(moment.id);
-        }
+        _acknowledgedSuccessfulMomentIds.add(moment.id);
 
         if (!mounted) {
           return;
@@ -187,7 +161,6 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
     MomentSummary moment,
     bool wantsFriend,
   ) async {
-    _handledFriendConsentMomentIds.add(moment.id);
     _acknowledgedSuccessfulMomentIds.add(moment.id);
 
     try {
@@ -217,7 +190,6 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
         );
       }
     } catch (_) {
-      _handledFriendConsentMomentIds.remove(moment.id);
       _acknowledgedSuccessfulMomentIds.remove(moment.id);
 
       if (!mounted) {
@@ -276,13 +248,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _DailyMessageCard(),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                 child: activeMomentsAsync.when(
                   data: (moments) => _ActiveMomentsSection(
                     moments: moments,
@@ -291,63 +257,6 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
                   loading: () => const LinearProgressIndicator(),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _SectionHeader(
-                  title: 'Games for today',
-                  actionLabel: 'See all',
-                  onActionTap: () {
-                    // TODO: navigate to games screen when implemented.
-                  },
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 180,
-                child: ListView.separated(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  scrollDirection: Axis.horizontal,
-                  itemBuilder: (context, index) {
-                    return _GameCard(
-                      title: 'Game ${index + 1}',
-                      description: 'Short description for game ${index + 1}.',
-                    );
-                  },
-                  separatorBuilder: (context, _) =>
-                      const SizedBox(width: 12),
-                  itemCount: 3,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  'Feed',
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: _FeedItemCard(
-                      username: 'Friend ${index + 1}',
-                      content: 'This is a placeholder post from Friend '
-                          '${index + 1}. Replace with real feed data later.',
-                    ),
-                  );
-                },
-                childCount: 5,
               ),
             ),
             const SliverToBoxAdapter(
@@ -428,249 +337,91 @@ class _MomentCard extends ConsumerWidget {
         ),
         title: Text(moment.otherParticipantName(currentUserId)),
         subtitle: isSuccessful
-            ? Text(
-                '$label - Successful',
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.w700,
-                ),
-              )
-            : Text('$label - active until $expires'),
-        trailing: IconButton(
-          icon: const Icon(Icons.chat_bubble_outline),
-          tooltip: 'Open chat',
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                fullscreenDialog: true,
-                builder: (_) => ChatScreen(
-                  conversationId: moment.conversationId,
-                  isGroup: moment.isGroup,
-                  isTemporary: true,
-                  compactMomentPresentation: true,
-                  title: moment.otherParticipantName(currentUserId),
-                  visibleFrom: moment.scheduledAt,
-                  visibleUntil: moment.expiresAt,
-                  showMomentFriendshipActions:
-                      moment.isGroup && moment.status == 'successful',
-                  momentFriendConsent: moment.friendConsentFor(currentUserId),
-                  momentOtherFriendConsent:
-                      moment.otherFriendConsentFor(currentUserId),
-                  momentFriendshipLocked: moment.isFriendshipLocked,
-                  onMomentFriendshipResponse:
-                      moment.isGroup && moment.status == 'successful'
-                          ? (wantsFriend) async {
-                              final created = await ref
-                                  .read(matchingEngineApiClientProvider)
-                                  .respondToGroupMomentFriendship(
-                                    matchId: moment.id,
-                                    wantsFriend: wantsFriend,
-                                  );
-
-                              ref.invalidate(activeMomentsProvider);
-                              ref.invalidate(friendConversationsProvider);
-                              ref.invalidate(messagesFriendsProvider);
-
-                              Future<void>.delayed(
-                                const Duration(milliseconds: 800),
-                                () {
-                                  ref.invalidate(activeMomentsProvider);
-                                  ref.invalidate(friendConversationsProvider);
-                                  ref.invalidate(messagesFriendsProvider);
-                                },
-                              );
-
-                              return created;
-                            }
-                          : null,
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _DailyMessageCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      color: theme.colorScheme.primaryContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Today\'s Daily Moment',
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This is a placeholder daily message. '
-              'Schedule and load the real message for the user here.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Next update at 20:00',
-                  style: theme.textTheme.bodySmall,
-                ),
-                FilledButton(
-                  onPressed: () {
-                    // TODO: implement daily action (e.g. respond / share).
-                  },
-                  child: const Text('Respond'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.title,
-    this.actionLabel,
-    this.onActionTap,
-  });
-
-  final String title;
-  final String? actionLabel;
-  final VoidCallback? onActionTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium,
-        ),
-        if (actionLabel != null && onActionTap != null)
-          TextButton(
-            onPressed: onActionTap,
-            child: Text(actionLabel!),
-          ),
-      ],
-    );
-  }
-}
-
-class _GameCard extends StatelessWidget {
-  const _GameCard({
-    required this.title,
-    required this.description,
-  });
-
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: 220,
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                Icons.videogame_asset_rounded,
-                color: theme.colorScheme.primary,
-                size: 28,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(
-                  description,
-                  style: theme.textTheme.bodySmall,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: FilledButton.tonal(
-                  onPressed: () {
-                    // TODO: navigate to specific game.
-                  },
-                  child: const Text('Play'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FeedItemCard extends StatelessWidget {
-  const _FeedItemCard({
-    required this.username,
-    required this.content,
-  });
-
-  final String username;
-  final String content;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  child: Text(username.isNotEmpty
-                      ? username[0].toUpperCase()
-                      : '?'),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            ? RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   children: [
-                    Text(
-                      username,
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    Text(
-                      'Just now',
-                      style: theme.textTheme.bodySmall,
+                    TextSpan(text: '$label - '),
+                    const TextSpan(
+                      text: 'Successful',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              content,
-              style: theme.textTheme.bodyMedium,
+              )
+            : Text('$label - active until $expires'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (moment.isGroup) ...[
+              Icon(
+                Icons.bolt,
+                size: 20,
+                color: moment.otherFriendConsentFor(currentUserId) == true
+                    ? Colors.green
+                    : theme.colorScheme.error,
+              ),
+              const SizedBox(width: 4),
+            ],
+            IconButton(
+              icon: const Icon(Icons.chat_bubble_outline),
+              tooltip: 'Open chat',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    fullscreenDialog: true,
+                    builder: (_) => ChatScreen(
+                      conversationId: moment.conversationId,
+                      isGroup: moment.isGroup,
+                      isTemporary: true,
+                      compactMomentPresentation: true,
+                      title: moment.otherParticipantName(currentUserId),
+                      visibleFrom: moment.scheduledAt,
+                      visibleUntil: moment.expiresAt,
+                      showMomentFriendshipActions:
+                          moment.isGroup && moment.status == 'successful',
+                      momentFriendConsent:
+                          moment.friendConsentFor(currentUserId),
+                      momentOtherFriendConsent:
+                          moment.otherFriendConsentFor(currentUserId),
+                      momentFriendshipLocked: moment.isFriendshipLocked,
+                      onMomentFriendshipResponse:
+                          moment.isGroup && moment.status == 'successful'
+                              ? (wantsFriend) async {
+                                  final created = await ref
+                                      .read(matchingEngineApiClientProvider)
+                                      .respondToGroupMomentFriendship(
+                                        matchId: moment.id,
+                                        wantsFriend: wantsFriend,
+                                      );
+
+                                  ref.invalidate(activeMomentsProvider);
+                                  ref.invalidate(friendConversationsProvider);
+                                  ref.invalidate(messagesFriendsProvider);
+
+                                  Future<void>.delayed(
+                                    const Duration(milliseconds: 800),
+                                    () {
+                                      ref.invalidate(activeMomentsProvider);
+                                      ref.invalidate(friendConversationsProvider);
+                                      ref.invalidate(messagesFriendsProvider);
+                                    },
+                                  );
+
+                                  return created;
+                                }
+                              : null,
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -678,3 +429,4 @@ class _FeedItemCard extends StatelessWidget {
     );
   }
 }
+

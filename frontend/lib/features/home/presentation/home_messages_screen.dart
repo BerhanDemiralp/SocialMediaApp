@@ -8,25 +8,27 @@ import '../../../core/network/timing_http_client.dart';
 import '../data/friend_conversations_api_client.dart';
 import '../data/friends_api_client.dart';
 import '../data/home_messaging_repository.dart';
+import 'app_avatar.dart';
 
 final _messagesSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final friendConversationsProvider =
     FutureProvider.autoDispose<List<FriendConversationSummary>>((ref) {
-  final repo = ref.watch(homeMessagingRepositoryProvider);
-  return repo.loadFriendConversations();
-});
+      final repo = ref.watch(homeMessagingRepositoryProvider);
+      return repo.loadFriendConversations();
+    });
 
-final messagesFriendsProvider =
-    FutureProvider.autoDispose<List<FriendSummary>>((ref) async {
-  final supabaseClient = Supabase.instance.client;
-  final httpClient = TimingHttpClient();
-  final apiClient = FriendsApiClient(httpClient, supabaseClient);
+final messagesFriendsProvider = FutureProvider.autoDispose<List<FriendSummary>>(
+  (ref) async {
+    final supabaseClient = Supabase.instance.client;
+    final httpClient = TimingHttpClient();
+    final apiClient = FriendsApiClient(httpClient, supabaseClient);
 
-  ref.onDispose(httpClient.close);
+    ref.onDispose(httpClient.close);
 
-  return apiClient.listFriends();
-});
+    return apiClient.listFriends();
+  },
+);
 
 class HomeMessagesScreen extends ConsumerWidget {
   const HomeMessagesScreen({super.key});
@@ -37,6 +39,7 @@ class HomeMessagesScreen extends ConsumerWidget {
     final searchQuery = ref.watch(_messagesSearchQueryProvider);
     final conversationsAsync = ref.watch(friendConversationsProvider);
     final friendsAsync = ref.watch(messagesFriendsProvider);
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
     return SafeArea(
       child: Column(
@@ -89,25 +92,27 @@ class HomeMessagesScreen extends ConsumerWidget {
                   final filteredConversations = normalizedQuery.isEmpty
                       ? conversations
                       : conversations
-                          .where(
-                            (c) =>
-                                c.displayName
-                                    .toLowerCase()
-                                    .contains(normalizedQuery) ||
-                                (c.lastMessagePreview ?? '')
-                                    .toLowerCase()
-                                    .contains(normalizedQuery),
-                          )
-                          .toList();
+                            .where(
+                              (c) =>
+                                  c.displayName.toLowerCase().contains(
+                                    normalizedQuery,
+                                  ) ||
+                                  (c.lastMessagePreview ?? '')
+                                      .toLowerCase()
+                                      .contains(normalizedQuery),
+                            )
+                            .toList();
 
                   final filteredFriends = friends
-                      .where((friend) => !convoByFriendId.containsKey(friend.id))
+                      .where(
+                        (friend) => !convoByFriendId.containsKey(friend.id),
+                      )
                       .where(
                         (friend) =>
                             normalizedQuery.isEmpty ||
-                            friend.username
-                                .toLowerCase()
-                                .contains(normalizedQuery),
+                            friend.username.toLowerCase().contains(
+                              normalizedQuery,
+                            ),
                       )
                       .toList();
 
@@ -133,6 +138,7 @@ class HomeMessagesScreen extends ConsumerWidget {
 
                         return _ConversationListTile(
                           conversation: convo,
+                          currentUserId: currentUserId,
                           formattedTime: convo.lastMessageAt != null
                               ? _formatTime(convo.lastMessageAt!)
                               : null,
@@ -167,25 +173,24 @@ class HomeMessagesScreen extends ConsumerWidget {
                       final analytics = ref.read(appAnalyticsProvider);
 
                       return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(
-                            friend.username.isNotEmpty
-                                ? friend.username[0].toUpperCase()
-                                : '?',
-                          ),
+                        leading: AppAvatar(
+                          username: friend.username,
+                          avatarUrl: friend.avatarUrl,
                         ),
                         title: Text(friend.username),
                         subtitle: const Text('No messages yet.'),
                         onTap: () async {
-                          final repo =
-                              ref.read(homeMessagingRepositoryProvider);
+                          final repo = ref.read(
+                            homeMessagingRepositoryProvider,
+                          );
 
                           try {
                             // If we already have a conversation for this friend, reuse it
                             // to allow opening historical chats even if friendship has changed.
                             final conversationId =
-                                (await repo.ensureFriendConversation(friend.id))
-                                    .conversationId;
+                                (await repo.ensureFriendConversation(
+                                  friend.id,
+                                )).conversationId;
 
                             analytics.trackEvent('friend_conversation_opened', {
                               'conversation_id': conversationId,
@@ -216,8 +221,7 @@ class HomeMessagesScreen extends ConsumerWidget {
                     },
                   );
                 },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (_, __) => ListView(
                   padding: const EdgeInsets.all(16),
                   children: const [
@@ -235,17 +239,23 @@ class HomeMessagesScreen extends ConsumerWidget {
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();
-    if (now.difference(time).inDays >= 1) {
-      final date = DateTime(time.year, time.month, time.day);
-      final today = DateTime(now.year, now.month, now.day);
-      if (date == today) {
-        final minutes = time.minute.toString().padLeft(2, '0');
-        return '${time.hour}:$minutes';
-      }
-      return '${time.month}/${time.day}';
+    final messageDate = DateTime(time.year, time.month, time.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final dayDiff = today.difference(messageDate).inDays;
+
+    if (dayDiff == 0) {
+      final hour = time.hour.toString().padLeft(2, '0');
+      final minutes = time.minute.toString().padLeft(2, '0');
+      return '$hour:$minutes';
     }
-    final minutes = time.minute.toString().padLeft(2, '0');
-    return '${time.hour}:$minutes';
+
+    if (dayDiff == 1) {
+      return 'Yesterday';
+    }
+
+    final day = time.day.toString().padLeft(2, '0');
+    final month = time.month.toString().padLeft(2, '0');
+    return '$day.$month.${time.year}';
   }
 }
 
@@ -253,34 +263,32 @@ class _ConversationListTile extends StatelessWidget {
   const _ConversationListTile({
     required this.conversation,
     required this.onTap,
+    this.currentUserId,
     this.formattedTime,
   });
 
   final FriendConversationSummary conversation;
   final VoidCallback onTap;
+  final String? currentUserId;
   final String? formattedTime;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isGroup = conversation.isGroup;
+    final lastMessageText = _formatLastMessagePreview(conversation);
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isGroup
-            ? theme.colorScheme.secondaryContainer
-            : theme.colorScheme.primaryContainer,
-        foregroundColor: isGroup
-            ? theme.colorScheme.onSecondaryContainer
-            : theme.colorScheme.onPrimaryContainer,
-        child: isGroup
-            ? const Icon(Icons.groups)
-            : Text(
-                conversation.displayName.isNotEmpty
-                    ? conversation.displayName[0].toUpperCase()
-                    : '?',
-              ),
-      ),
+      leading: isGroup
+          ? CircleAvatar(
+              backgroundColor: theme.colorScheme.secondaryContainer,
+              foregroundColor: theme.colorScheme.onSecondaryContainer,
+              child: const Icon(Icons.groups),
+            )
+          : AppAvatar(
+              username: conversation.displayName,
+              avatarUrl: conversation.avatarUrl,
+            ),
       title: Row(
         children: [
           Expanded(
@@ -292,28 +300,38 @@ class _ConversationListTile extends StatelessWidget {
           ),
           if (isGroup) ...[
             const SizedBox(width: 8),
-            Icon(
-              Icons.tag,
-              size: 16,
-              color: theme.colorScheme.secondary,
-            ),
+            Icon(Icons.tag, size: 16, color: theme.colorScheme.secondary),
           ],
         ],
       ),
       subtitle: Text(
-        conversation.writable
-            ? conversation.lastMessagePreview ?? 'No messages yet.'
-            : 'Read-only history',
+        conversation.writable ? lastMessageText : 'Read-only history',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       trailing: formattedTime != null
-          ? Text(
-              formattedTime!,
-              style: theme.textTheme.bodySmall,
-            )
+          ? Text(formattedTime!, style: theme.textTheme.bodySmall)
           : null,
       onTap: onTap,
     );
+  }
+
+  String _formatLastMessagePreview(FriendConversationSummary conversation) {
+    final message = conversation.lastMessagePreview;
+
+    if (message == null || message.isEmpty) {
+      return 'No messages yet.';
+    }
+
+    if (conversation.lastMessageSenderId == currentUserId) {
+      return 'You: $message';
+    }
+
+    if (conversation.isGroup) {
+      final username = conversation.lastMessageSenderUsername ?? 'Someone';
+      return '$username: $message';
+    }
+
+    return message;
   }
 }
