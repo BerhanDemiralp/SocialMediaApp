@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_text_field.dart';
 import '../data/groups_api_client.dart';
 import 'groups_controller.dart';
 import 'group_members_screen.dart';
@@ -37,9 +38,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
     void showSnack(String message) {
       if (message.isEmpty) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
 
     if (state.error != null) {
@@ -49,6 +50,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
 
     void openGroup(GroupSummary group) {
+      dismissKeyboard();
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GroupMembersScreen(
@@ -165,8 +167,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                TextField(
+                AppTextField(
                   controller: _nameController,
+                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: 'Create group',
                     suffixIcon: IconButton(
@@ -174,10 +177,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       onPressed: createGroup,
                     ),
                   ),
+                  onSubmitted: (_) => createGroup(),
                 ),
                 const SizedBox(height: 16),
-                TextField(
+                AppTextField(
                   controller: _codeController,
+                  textInputAction: TextInputAction.done,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   decoration: InputDecoration(
                     labelText: 'Join with invite code',
                     suffixIcon: IconButton(
@@ -185,6 +192,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                       onPressed: joinGroup,
                     ),
                   ),
+                  onSubmitted: (_) => joinGroup(),
                 ),
               ],
             ),

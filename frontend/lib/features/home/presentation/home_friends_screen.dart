@@ -7,6 +7,7 @@ import '../data/friend_requests_api_client.dart';
 import '../data/friends_api_client.dart';
 import '../data/user_search_api_client.dart';
 import '../../../core/analytics/app_analytics.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../data/home_messaging_repository.dart';
 import 'app_avatar.dart';
 import 'home_messages_screen.dart';
@@ -74,11 +75,15 @@ class HomeFriendsScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              TextField(
+              AppTextField(
                 decoration: const InputDecoration(
                   hintText: 'Type a friend\'s username',
                   prefixIcon: Icon(Icons.search),
                 ),
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.search,
+                autocorrect: false,
+                enableSuggestions: false,
                 onChanged: (value) {
                   ref.read(_searchQueryProvider.notifier).state = value;
                   final analytics = ref.read(appAnalyticsProvider);
@@ -247,6 +252,7 @@ class HomeFriendsScreen extends ConsumerWidget {
                                   : null,
                               onOpenChat: isFriend
                                   ? () async {
+                                      dismissKeyboard();
                                       // Only allow direct chat when already a friend.
                                       final openingUserId = ref.read(
                                         _openingChatForUserIdProvider,

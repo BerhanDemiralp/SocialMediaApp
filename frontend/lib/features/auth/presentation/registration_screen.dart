@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/supabase/supabase_init.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../data/auth_repository.dart';
 
 class RegistrationState {
@@ -25,7 +26,7 @@ class RegistrationState {
   bool get isValid =>
       email.trim().isNotEmpty &&
       email.contains('@') &&
-      username.trim().isNotEmpty &&
+      username.trim().length >= 3 &&
       password.trim().length >= 8;
 
   RegistrationState copyWith({
@@ -45,16 +46,16 @@ class RegistrationState {
   }
 
   const RegistrationState.initial()
-      : email = '',
-        username = '',
-        password = '',
-        isSubmitting = false,
-        errorMessage = null;
+    : email = '',
+      username = '',
+      password = '',
+      isSubmitting = false,
+      errorMessage = null;
 }
 
 class RegistrationController extends StateNotifier<RegistrationState> {
   RegistrationController(this._ref, this._analytics)
-      : super(const RegistrationState.initial());
+    : super(const RegistrationState.initial());
 
   final Ref _ref;
   final AppAnalytics _analytics;
@@ -140,12 +141,44 @@ class RegistrationController extends StateNotifier<RegistrationState> {
 
 final registrationControllerProvider =
     StateNotifierProvider<RegistrationController, RegistrationState>((ref) {
-  final analytics = ref.read(appAnalyticsProvider);
-  return RegistrationController(ref, analytics);
-});
+      final analytics = ref.read(appAnalyticsProvider);
+      return RegistrationController(ref, analytics);
+    });
 
-class RegistrationScreen extends ConsumerWidget {
+class RegistrationScreen extends ConsumerStatefulWidget {
   const RegistrationScreen({super.key});
+
+  @override
+  ConsumerState<RegistrationScreen> createState() => _RegistrationScreenState();
+}
+
+class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
+  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _usernameFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _goBackToSignIn() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+
+    context.go('/auth');
+  }
 
   String? _emailError(RegistrationState state) {
     final value = state.email.trim();
@@ -169,112 +202,143 @@ class RegistrationScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(registrationControllerProvider);
     final supabaseState = ref.watch(supabaseInitializationProvider);
     final isSupabaseReady = supabaseState.hasValue;
     final isBusy = state.isSubmitting || supabaseState.isLoading;
 
     // Fire registration_started once per mount.
-    ref.listen<RegistrationState>(registrationControllerProvider,
-        (previous, next) {
+    ref.listen<RegistrationState>(registrationControllerProvider, (
+      previous,
+      next,
+    ) {
       if (previous == null) {
         ref.read(appAnalyticsProvider).trackEvent('registration_started', {});
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create your MOMENT account'),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'MOMENT helps you build a cozy conversation habit with friends.',
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    errorText: _emailError(state),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _goBackToSignIn();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: 'Back',
+            onPressed: _goBackToSignIn,
+          ),
+          title: const Text('Create your MOMENT account'),
+        ),
+        body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'MOMENT helps you build a cozy conversation habit with friends.',
                   ),
-                  keyboardType: TextInputType.emailAddress,
-                  onChanged: (value) =>
-                      ref.read(registrationControllerProvider.notifier).updateEmail(
-                            value,
-                          ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Username',
-                    errorText: _usernameError(state),
-                  ),
-                  onChanged: (value) =>
-                      ref.read(registrationControllerProvider.notifier).updateUsername(
-                            value,
-                          ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    errorText: _passwordError(state),
-                  ),
-                  obscureText: true,
-                  onChanged: (value) =>
-                      ref.read(registrationControllerProvider.notifier).updatePassword(
-                            value,
-                          ),
-                ),
-                const SizedBox(height: 16),
-                if (state.errorMessage != null) ...[
-                  Text(
-                    state.errorMessage!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                  const SizedBox(height: 16),
+                  AppTextField(
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      errorText: _emailError(state),
                     ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    onSubmitted: (_) => _usernameFocusNode.requestFocus(),
+                    onChanged: (value) => ref
+                        .read(registrationControllerProvider.notifier)
+                        .updateEmail(value),
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: _usernameController,
+                    focusNode: _usernameFocusNode,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      errorText: _usernameError(state),
+                    ),
+                    keyboardType: TextInputType.text,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.username],
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    onSubmitted: (_) => _passwordFocusNode.requestFocus(),
+                    onChanged: (value) => ref
+                        .read(registrationControllerProvider.notifier)
+                        .updateUsername(value),
+                  ),
+                  const SizedBox(height: 12),
+                  AppTextField(
+                    controller: _passwordController,
+                    focusNode: _passwordFocusNode,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      errorText: _passwordError(state),
+                    ),
+                    keyboardType: TextInputType.visiblePassword,
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    onChanged: (value) => ref
+                        .read(registrationControllerProvider.notifier)
+                        .updatePassword(value),
+                  ),
+                  const SizedBox(height: 16),
+                  if (state.errorMessage != null) ...[
+                    Text(
+                      state.errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  FilledButton(
+                    onPressed: !state.isValid || !isSupabaseReady || isBusy
+                        ? null
+                        : () async {
+                            final ok = await ref
+                                .read(registrationControllerProvider.notifier)
+                                .submit(ref);
+                            if (ok && context.mounted) {
+                              context.go('/');
+                            }
+                          },
+                    child: isBusy
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Create account'),
                   ),
                   const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: isBusy
+                        ? null
+                        : () {
+                            if (context.mounted) {
+                              context.go('/auth');
+                            }
+                          },
+                    child: const Text('Already have an account? Sign in'),
+                  ),
                 ],
-                FilledButton(
-                  onPressed: !state.isValid || !isSupabaseReady || isBusy
-                      ? null
-                      : () async {
-                          final ok = await ref
-                              .read(registrationControllerProvider.notifier)
-                              .submit(ref);
-                          if (ok && context.mounted) {
-                            context.go('/');
-                          }
-                        },
-                  child: isBusy
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Create account'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: isBusy
-                      ? null
-                      : () {
-                          if (context.mounted) {
-                            context.go('/auth');
-                          }
-                        },
-                  child: const Text('Already have an account? Sign in'),
-                ),
-              ],
+              ),
             ),
           ),
         ),

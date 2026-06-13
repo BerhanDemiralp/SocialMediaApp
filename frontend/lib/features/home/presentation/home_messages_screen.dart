@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/network/timing_http_client.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../data/friend_conversations_api_client.dart';
 import '../data/friends_api_client.dart';
 import '../data/home_messaging_repository.dart';
@@ -46,7 +47,7 @@ class HomeMessagesScreen extends ConsumerWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: TextField(
+            child: AppTextField(
               decoration: InputDecoration(
                 hintText: 'Search conversations or friends',
                 prefixIcon: const Icon(Icons.search),
@@ -61,6 +62,10 @@ class HomeMessagesScreen extends ConsumerWidget {
                   vertical: 0,
                 ),
               ),
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              enableSuggestions: false,
               onChanged: (value) {
                 ref.read(_messagesSearchQueryProvider.notifier).state = value;
                 final analytics = ref.read(appAnalyticsProvider);
@@ -143,6 +148,7 @@ class HomeMessagesScreen extends ConsumerWidget {
                               ? _formatTime(convo.lastMessageAt!)
                               : null,
                           onTap: () async {
+                            dismissKeyboard();
                             analytics.trackEvent(
                               convo.isGroup
                                   ? 'group_conversation_opened'
@@ -180,6 +186,7 @@ class HomeMessagesScreen extends ConsumerWidget {
                         title: Text(friend.username),
                         subtitle: const Text('No messages yet.'),
                         onTap: () async {
+                          dismissKeyboard();
                           final repo = ref.read(
                             homeMessagingRepositoryProvider,
                           );

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_text_field.dart';
 import '../domain/chat_message.dart';
 import 'chat_controller.dart';
 
-typedef MomentFriendshipResponseHandler = Future<bool> Function(
-  bool wantsFriend,
-);
+typedef MomentFriendshipResponseHandler =
+    Future<bool> Function(bool wantsFriend);
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -132,8 +132,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               (widget.isGroup
                   ? 'Group chat'
                   : widget.isTemporary
-                      ? 'Moment chat'
-                      : 'Chat'),
+                  ? 'Moment chat'
+                  : 'Chat'),
         ),
         centerTitle: false,
         bottom: widget.isTemporary || widget.isGroup
@@ -178,10 +178,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width =
-                constraints.maxWidth > 600 ? 520.0 : constraints.maxWidth - 40;
-            final height =
-                constraints.maxHeight > 760 ? 660.0 : constraints.maxHeight * 0.82;
+            final width = constraints.maxWidth > 600
+                ? 520.0
+                : constraints.maxWidth - 40;
+            final height = constraints.maxHeight > 760
+                ? 660.0
+                : constraints.maxHeight * 0.82;
 
             return Center(
               child: SizedBox(
@@ -192,7 +194,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface,
-                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                      border: Border.all(
+                        color: theme.colorScheme.outlineVariant,
+                      ),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x22000000),
@@ -384,14 +388,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: Row(
             children: [
               Expanded(
-                child: TextField(
+                child: AppTextField(
                   controller: _controller,
                   enabled: !isReadOnly,
                   minLines: 1,
                   maxLines: 4,
+                  keyboardType: TextInputType.multiline,
                   decoration: InputDecoration(
-                    hintText:
-                        isReadOnly ? 'This chat is read-only' : 'Message...',
+                    hintText: isReadOnly
+                        ? 'This chat is read-only'
+                        : 'Message...',
                     filled: true,
                     fillColor: compact
                         ? theme.colorScheme.surface
@@ -512,8 +518,9 @@ class _MessageBubble extends StatelessWidget {
     final bubbleColor = isMine
         ? theme.colorScheme.primary
         : theme.colorScheme.surfaceContainerHighest;
-    final textColor =
-        isMine ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface;
+    final textColor = isMine
+        ? theme.colorScheme.onPrimary
+        : theme.colorScheme.onSurface;
 
     final borderRadius = BorderRadius.only(
       topLeft: Radius.circular(isMine ? 16 : 4),
@@ -609,8 +616,9 @@ class _SenderAvatar extends StatelessWidget {
         radius: 16,
         backgroundColor: theme.colorScheme.tertiaryContainer,
         foregroundColor: theme.colorScheme.onTertiaryContainer,
-        backgroundImage:
-            avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+            ? NetworkImage(avatarUrl)
+            : null,
         child: avatarUrl == null || avatarUrl.isEmpty
             ? Text(
                 username.isNotEmpty ? username[0].toUpperCase() : '?',

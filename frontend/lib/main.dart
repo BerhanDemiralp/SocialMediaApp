@@ -6,6 +6,7 @@ import 'core/auth/auth_state.dart';
 import 'core/supabase/supabase_init.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
+import 'core/widgets/app_text_field.dart';
 import 'features/auth/data/auth_repository.dart';
 
 Future<void> main() async {
@@ -59,6 +60,13 @@ class _MomentAppState extends ConsumerState<MomentApp> {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: dismissKeyboard,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

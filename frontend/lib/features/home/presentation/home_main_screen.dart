@@ -1,9 +1,10 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/widgets/app_text_field.dart';
 import '../data/matching_engine_api_client.dart';
 import '../../chat/presentation/chat_screen.dart';
 import 'home_friends_screen.dart';
@@ -33,14 +34,13 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
       const Duration(seconds: 30),
       (_) => _checkForSuccessfulMoments(),
     );
-    _activeMomentsRefreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) {
-        if (mounted) {
-          ref.invalidate(activeMomentsProvider);
-        }
-      },
-    );
+    _activeMomentsRefreshTimer = Timer.periodic(const Duration(seconds: 30), (
+      _,
+    ) {
+      if (mounted) {
+        ref.invalidate(activeMomentsProvider);
+      }
+    });
   }
 
   @override
@@ -117,40 +117,40 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
         return PopScope(
           canPop: !isGroupMoment,
           child: AlertDialog(
-          icon: Icon(
-            Icons.verified_rounded,
-            size: 44,
-            color: theme.colorScheme.primary,
-          ),
-          title: const Text('Moment başarıyla tamamlandı'),
-          content: Text(
-            isGroupMoment
-                ? '$otherParticipantName ile Moment başarıyla tamamlandı. Arkadaş eklemek ister misin?'
-                : '$otherParticipantName ile Moment başarıyla tamamlandı.',
-          ),
-          actions: isGroupMoment
-              ? [
-                  TextButton(
-                    onPressed: () {
-                      _submitFriendshipResponse(moment, false);
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('HayÄ±r'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      _submitFriendshipResponse(moment, true);
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Evet'),
-                  ),
-                ]
-              : [
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Tamam'),
-                  ),
-                ],
+            icon: Icon(
+              Icons.verified_rounded,
+              size: 44,
+              color: theme.colorScheme.primary,
+            ),
+            title: const Text('Moment başarıyla tamamlandı'),
+            content: Text(
+              isGroupMoment
+                  ? '$otherParticipantName ile Moment başarıyla tamamlandı. Arkadaş eklemek ister misin?'
+                  : '$otherParticipantName ile Moment başarıyla tamamlandı.',
+            ),
+            actions: isGroupMoment
+                ? [
+                    TextButton(
+                      onPressed: () {
+                        _submitFriendshipResponse(moment, false);
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Hayır'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        _submitFriendshipResponse(moment, true);
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Evet'),
+                    ),
+                  ]
+                : [
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Tamam'),
+                    ),
+                  ],
           ),
         );
       },
@@ -185,9 +185,9 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
       }
 
       if (created) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ArkadaÅŸlÄ±k eklendi.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Arkadaşlık eklendi.')));
       }
     } catch (_) {
       _acknowledgedSuccessfulMomentIds.remove(moment.id);
@@ -197,7 +197,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ArkadaÅŸlÄ±k cevabÄ± gÃ¶nderilemedi.')),
+        const SnackBar(content: Text('Arkadaşlık cevabı gönderilemedi.')),
       );
     }
   }
@@ -227,15 +227,13 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
               title: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Moment',
-                      style: theme.textTheme.titleLarge,
-                    ),
+                    child: Text('Moment', style: theme.textTheme.titleLarge),
                   ),
                   IconButton(
                     icon: const Icon(Icons.person_add_alt_1_outlined),
                     tooltip: 'Find friends',
                     onPressed: () {
+                      dismissKeyboard();
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => const HomeFriendsScreen(),
@@ -259,9 +257,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
                 ),
               ),
             ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 16),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
           ],
         ),
       ),
@@ -287,18 +283,12 @@ class _ActiveMomentsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Active Moments',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Active Moments', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         ...moments.map(
           (moment) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: _MomentCard(
-              moment: moment,
-              currentUserId: currentUserId,
-            ),
+            child: _MomentCard(moment: moment, currentUserId: currentUserId),
           ),
         ),
       ],
@@ -307,10 +297,7 @@ class _ActiveMomentsSection extends StatelessWidget {
 }
 
 class _MomentCard extends ConsumerWidget {
-  const _MomentCard({
-    required this.moment,
-    required this.currentUserId,
-  });
+  const _MomentCard({required this.moment, required this.currentUserId});
 
   final MomentSummary moment;
   final String? currentUserId;
@@ -374,6 +361,7 @@ class _MomentCard extends ConsumerWidget {
               icon: const Icon(Icons.chat_bubble_outline),
               tooltip: 'Open chat',
               onPressed: () {
+                dismissKeyboard();
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     fullscreenDialog: true,
@@ -387,37 +375,39 @@ class _MomentCard extends ConsumerWidget {
                       visibleUntil: moment.expiresAt,
                       showMomentFriendshipActions:
                           moment.isGroup && moment.status == 'successful',
-                      momentFriendConsent:
-                          moment.friendConsentFor(currentUserId),
-                      momentOtherFriendConsent:
-                          moment.otherFriendConsentFor(currentUserId),
+                      momentFriendConsent: moment.friendConsentFor(
+                        currentUserId,
+                      ),
+                      momentOtherFriendConsent: moment.otherFriendConsentFor(
+                        currentUserId,
+                      ),
                       momentFriendshipLocked: moment.isFriendshipLocked,
                       onMomentFriendshipResponse:
                           moment.isGroup && moment.status == 'successful'
-                              ? (wantsFriend) async {
-                                  final created = await ref
-                                      .read(matchingEngineApiClientProvider)
-                                      .respondToGroupMomentFriendship(
-                                        matchId: moment.id,
-                                        wantsFriend: wantsFriend,
-                                      );
+                          ? (wantsFriend) async {
+                              final created = await ref
+                                  .read(matchingEngineApiClientProvider)
+                                  .respondToGroupMomentFriendship(
+                                    matchId: moment.id,
+                                    wantsFriend: wantsFriend,
+                                  );
 
+                              ref.invalidate(activeMomentsProvider);
+                              ref.invalidate(friendConversationsProvider);
+                              ref.invalidate(messagesFriendsProvider);
+
+                              Future<void>.delayed(
+                                const Duration(milliseconds: 800),
+                                () {
                                   ref.invalidate(activeMomentsProvider);
                                   ref.invalidate(friendConversationsProvider);
                                   ref.invalidate(messagesFriendsProvider);
+                                },
+                              );
 
-                                  Future<void>.delayed(
-                                    const Duration(milliseconds: 800),
-                                    () {
-                                      ref.invalidate(activeMomentsProvider);
-                                      ref.invalidate(friendConversationsProvider);
-                                      ref.invalidate(messagesFriendsProvider);
-                                    },
-                                  );
-
-                                  return created;
-                                }
-                              : null,
+                              return created;
+                            }
+                          : null,
                     ),
                   ),
                 );
@@ -429,4 +419,3 @@ class _MomentCard extends ConsumerWidget {
     );
   }
 }
-

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/analytics/app_analytics.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/supabase/supabase_init.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../data/auth_repository.dart';
 
 class AuthGateScreen extends ConsumerStatefulWidget {
@@ -17,6 +18,8 @@ class AuthGateScreen extends ConsumerStatefulWidget {
 class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _isLoading = false;
   String? _error;
 
@@ -24,6 +27,8 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
@@ -80,7 +85,7 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
 
   Future<void> _signUp() async {
     if (!mounted) return;
-    context.go('/auth/register');
+    context.push('/auth/register');
   }
 
   Future<void> _sendResetEmail() async {
@@ -129,20 +134,30 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
+                AppTextField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                  ),
+                  focusNode: _emailFocusNode,
+                  decoration: const InputDecoration(labelText: 'Email'),
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autofillHints: const [AutofillHints.email],
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  onSubmitted: (_) => _passwordFocusNode.requestFocus(),
                 ),
                 const SizedBox(height: 12),
-                TextField(
+                AppTextField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    labelText: 'Password',
-                  ),
+                  focusNode: _passwordFocusNode,
+                  decoration: const InputDecoration(labelText: 'Password'),
+                  keyboardType: TextInputType.visiblePassword,
                   obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    if (isSupabaseReady && !isBusy) {
+                      _signIn();
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 if (_error != null) ...[
@@ -179,8 +194,9 @@ class _AuthGateScreenState extends ConsumerState<AuthGateScreen> {
                   child: const Text('Sign up'),
                 ),
                 TextButton(
-                  onPressed:
-                      !isSupabaseReady || isBusy ? null : _sendResetEmail,
+                  onPressed: !isSupabaseReady || isBusy
+                      ? null
+                      : _sendResetEmail,
                   child: const Text('Forgot password?'),
                 ),
               ],

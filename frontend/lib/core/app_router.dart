@@ -10,6 +10,8 @@ import '../features/chat/presentation/chat_screen.dart';
 import '../features/groups/presentation/groups_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(appAuthStateProvider);
+
   return GoRouter(
     initialLocation: '/',
     errorBuilder: (context, state) => Scaffold(
@@ -22,7 +24,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ),
     redirect: (context, state) {
-      final authState = ref.read(appAuthStateProvider);
       final loggingIn = state.matchedLocation.startsWith('/auth');
 
       if (!authState.isAuthenticated && !loggingIn) {

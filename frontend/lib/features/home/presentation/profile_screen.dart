@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/theme_controller.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../../auth/data/auth_repository.dart';
 import '../data/user_profile_api_client.dart';
 import 'app_avatar.dart';
@@ -261,13 +262,19 @@ class _EditProfileDialogState extends ConsumerState<_EditProfileDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
+            AppTextField(
               controller: _usernameController,
               enabled: !_isSaving,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.username],
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 labelText: 'Username',
                 prefixIcon: Icon(Icons.alternate_email),
               ),
+              onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 18),
             Text('Avatar', style: Theme.of(context).textTheme.titleSmall),
@@ -432,34 +439,50 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            AppTextField(
               controller: _currentPasswordController,
               enabled: !_isSaving,
               obscureText: true,
+              keyboardType: TextInputType.visiblePassword,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.password],
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 labelText: 'Current password',
                 prefixIcon: Icon(Icons.lock_outline),
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
+            AppTextField(
               controller: _newPasswordController,
               enabled: !_isSaving,
               obscureText: true,
+              keyboardType: TextInputType.visiblePassword,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newPassword],
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 labelText: 'New password',
                 prefixIcon: Icon(Icons.lock_reset),
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
+            AppTextField(
               controller: _confirmPasswordController,
               enabled: !_isSaving,
               obscureText: true,
+              keyboardType: TextInputType.visiblePassword,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.newPassword],
+              autocorrect: false,
+              enableSuggestions: false,
               decoration: const InputDecoration(
                 labelText: 'Confirm new password',
                 prefixIcon: Icon(Icons.verified_user_outlined),
               ),
+              onSubmitted: (_) => _save(),
             ),
           ],
         ),
