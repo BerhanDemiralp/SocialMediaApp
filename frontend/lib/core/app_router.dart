@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth/auth_state.dart';
+import '../features/users/presentation/friend_chat_screen.dart';
 import '../features/auth/presentation/auth_gate.dart';
 import '../features/auth/presentation/registration_screen.dart';
 import '../features/home/presentation/home_shell.dart';
@@ -10,7 +11,9 @@ import '../features/chat/presentation/chat_screen.dart';
 import '../features/groups/presentation/groups_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(appAuthStateProvider);
+  final isAuthenticated = ref.watch(
+    appAuthStateProvider.select((state) => state.isAuthenticated),
+  );
 
   return GoRouter(
     initialLocation: '/',
@@ -26,11 +29,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggingIn = state.matchedLocation.startsWith('/auth');
 
-      if (!authState.isAuthenticated && !loggingIn) {
+      if (!isAuthenticated && !loggingIn) {
         return '/auth';
       }
 
-      if (authState.isAuthenticated && loggingIn) {
+      if (isAuthenticated && loggingIn) {
         return '/';
       }
 
@@ -47,14 +50,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GroupsScreen(),
       ),
       GoRoute(
+        path: '/friend/:userId',
+        pageBuilder: (context, state) => NoTransitionPage(
+          key: state.pageKey,
+          child: FriendChatScreen(
+            userId: state.pathParameters['userId']!,
+            title: state.uri.queryParameters['title'] ?? 'Chat',
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/conversation/:conversationId',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final conversationId = state.pathParameters['conversationId']!;
-          return ChatScreen(
-            conversationId: conversationId,
-            isGroup: state.uri.queryParameters['type'] == 'group',
-            isTemporary: state.uri.queryParameters['temporary'] == '1',
-            title: state.uri.queryParameters['title'],
+          return NoTransitionPage(
+            key: state.pageKey,
+            child: ChatScreen(
+              conversationId: conversationId,
+              isGroup: state.uri.queryParameters['type'] == 'group',
+              isTemporary: state.uri.queryParameters['temporary'] == '1',
+              title: state.uri.queryParameters['title'],
+            ),
           );
         },
       ),

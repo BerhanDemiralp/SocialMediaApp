@@ -1,14 +1,18 @@
+import '../../../core/widgets/app_notice.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../users/data/user_session.dart';
 
 import '../../../core/widgets/app_text_field.dart';
 import '../data/matching_engine_api_client.dart';
 import '../../chat/presentation/chat_screen.dart';
 import 'home_friends_screen.dart';
-import 'home_messages_screen.dart';
+import '../../users/presentation/user_conversations.dart';
+import '../../users/presentation/user_relationships_controller.dart';
+import '../../users/presentation/user_identity_view.dart';
+import '../../users/data/user_identity_adapters.dart';
 
 class HomeMainScreen extends ConsumerStatefulWidget {
   const HomeMainScreen({super.key});
@@ -185,9 +189,7 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
       }
 
       if (created) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Arkadaşlık eklendi.')));
+        showAppNotice(context, 'Arkadaşlık eklendi.');
       }
     } catch (_) {
       _acknowledgedSuccessfulMomentIds.remove(moment.id);
@@ -196,23 +198,21 @@ class _HomeMainScreenState extends ConsumerState<HomeMainScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Arkadaşlık cevabı gönderilemedi.')),
-      );
+      showAppNotice(context, 'Arkadaşlık cevabı gönderilemedi.');
     }
   }
 
   void _refreshMomentFriendshipViews() {
     ref.invalidate(activeMomentsProvider);
-    ref.invalidate(friendConversationsProvider);
-    ref.invalidate(messagesFriendsProvider);
+    ref.invalidate(userConversationsProvider);
+    ref.read(userRelationshipsProvider.notifier).refresh();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final activeMomentsAsync = ref.watch(activeMomentsProvider);
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final currentUserId = ref.watch(activeAccountIdProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -313,16 +313,7 @@ class _MomentCard extends ConsumerWidget {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: moment.isGroup
-              ? theme.colorScheme.secondaryContainer
-              : theme.colorScheme.primaryContainer,
-          foregroundColor: moment.isGroup
-              ? theme.colorScheme.onSecondaryContainer
-              : theme.colorScheme.onPrimaryContainer,
-          child: Icon(moment.isGroup ? Icons.groups_2 : Icons.person),
-        ),
-        title: Text(moment.otherParticipantName(currentUserId)),
+        title: UserIdentityView(user: moment.otherIdentity(currentUserId)),
         subtitle: isSuccessful
             ? RichText(
                 maxLines: 1,
@@ -393,15 +384,19 @@ class _MomentCard extends ConsumerWidget {
                                   );
 
                               ref.invalidate(activeMomentsProvider);
-                              ref.invalidate(friendConversationsProvider);
-                              ref.invalidate(messagesFriendsProvider);
+                              ref.invalidate(userConversationsProvider);
+                              ref
+                                  .read(userRelationshipsProvider.notifier)
+                                  .refresh();
 
                               Future<void>.delayed(
                                 const Duration(milliseconds: 800),
                                 () {
                                   ref.invalidate(activeMomentsProvider);
-                                  ref.invalidate(friendConversationsProvider);
-                                  ref.invalidate(messagesFriendsProvider);
+                                  ref.invalidate(userConversationsProvider);
+                                  ref
+                                      .read(userRelationshipsProvider.notifier)
+                                      .refresh();
                                 },
                               );
 

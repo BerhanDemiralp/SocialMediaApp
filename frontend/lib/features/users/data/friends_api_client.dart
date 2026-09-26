@@ -48,16 +48,14 @@ class FriendsApiClient {
 
     final List<dynamic> body = jsonDecode(response.body) as List<dynamic>;
 
-    return body
-        .map((e) {
-          final map = e as Map<String, dynamic>;
-          return FriendSummary(
-            id: map['id'] as String,
-            username: map['username'] as String,
-            avatarUrl: map['avatar_url'] as String?,
-          );
-        })
-        .toList();
+    return body.map((e) {
+      final map = e as Map<String, dynamic>;
+      return FriendSummary(
+        id: map['id'] as String,
+        username: map['username'] as String,
+        avatarUrl: map['avatar_url'] as String?,
+      );
+    }).toList();
   }
 
   Future<void> removeFriend({required String friendId}) async {

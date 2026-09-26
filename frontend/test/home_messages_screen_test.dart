@@ -1,45 +1,35 @@
+import 'package:moment_app/features/users/presentation/user_conversations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:moment_app/features/home/data/friend_conversations_api_client.dart';
-import 'package:moment_app/features/home/data/friends_api_client.dart';
+import 'package:moment_app/features/users/data/friend_conversations_api_client.dart';
 import 'package:moment_app/features/home/presentation/home_messages_screen.dart';
 
 void main() {
-  testWidgets('shows empty state when there are no conversations',
-      (WidgetTester tester) async {
+  testWidgets('shows empty state when there are no conversations', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          friendConversationsProvider.overrideWith(
+          userConversationsProvider.overrideWith(
             (ref) async => <FriendConversationSummary>[],
           ),
-          messagesFriendsProvider.overrideWith(
-            (ref) async => <FriendSummary>[],
-          ),
         ],
-        child: const MaterialApp(
-          home: Scaffold(
-            body: HomeMessagesScreen(),
-          ),
-        ),
+        child: const MaterialApp(home: Scaffold(body: HomeMessagesScreen())),
       ),
     );
 
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('No conversations match your search.'),
-        findsOneWidget);
+    expect(
+      find.textContaining('No conversations match your search.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('renders friend conversations list',
-      (WidgetTester tester) async {
-    final friends = <FriendSummary>[
-      const FriendSummary(id: 'friend-1', username: 'Alice', avatarUrl: null),
-      const FriendSummary(id: 'friend-2', username: 'Bob', avatarUrl: null),
-    ];
-
+  testWidgets('renders friend conversations list', (WidgetTester tester) async {
     final items = <FriendConversationSummary>[
       FriendConversationSummary(
         friendId: 'friend-1',
@@ -64,18 +54,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          messagesFriendsProvider.overrideWith(
-            (ref) async => friends,
-          ),
-          friendConversationsProvider.overrideWith(
-            (ref) async => items,
-          ),
+          userConversationsProvider.overrideWith((ref) async => items),
         ],
-        child: const MaterialApp(
-          home: Scaffold(
-            body: HomeMessagesScreen(),
-          ),
-        ),
+        child: const MaterialApp(home: Scaffold(body: HomeMessagesScreen())),
       ),
     );
 
@@ -87,8 +68,9 @@ void main() {
     expect(find.text('What\'s up?'), findsOneWidget);
   });
 
-  testWidgets('renders group conversations with distinct presentation',
-      (WidgetTester tester) async {
+  testWidgets('renders group conversations with distinct presentation', (
+    WidgetTester tester,
+  ) async {
     final items = <FriendConversationSummary>[
       FriendConversationSummary(
         conversationId: 'group-conv-1',
@@ -104,25 +86,16 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          messagesFriendsProvider.overrideWith(
-            (ref) async => <FriendSummary>[],
-          ),
-          friendConversationsProvider.overrideWith(
-            (ref) async => items,
-          ),
+          userConversationsProvider.overrideWith((ref) async => items),
         ],
-        child: const MaterialApp(
-          home: Scaffold(
-            body: HomeMessagesScreen(),
-          ),
-        ),
+        child: const MaterialApp(home: Scaffold(body: HomeMessagesScreen())),
       ),
     );
 
     await tester.pumpAndSettle();
 
     expect(find.text('Book Club'), findsOneWidget);
-    expect(find.text('Tonight at 8?'), findsOneWidget);
+    expect(find.textContaining('Tonight at 8?'), findsOneWidget);
     expect(find.byIcon(Icons.groups), findsOneWidget);
   });
 }

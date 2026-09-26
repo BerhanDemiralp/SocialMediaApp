@@ -6,16 +6,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env/app_env.dart';
 import '../../../core/network/timing_http_client.dart';
+import '../../users/data/user_session.dart';
 
-final matchingEngineApiClientProvider =
-    Provider<MatchingEngineApiClient>((ref) {
+final matchingEngineApiClientProvider = Provider<MatchingEngineApiClient>((
+  ref,
+) {
   final httpClient = TimingHttpClient();
   ref.onDispose(httpClient.close);
   return MatchingEngineApiClient(httpClient, Supabase.instance.client);
 });
 
-final activeMomentsProvider =
-    FutureProvider.autoDispose<List<MomentSummary>>((ref) {
+final activeMomentsProvider = FutureProvider.autoDispose<List<MomentSummary>>((
+  ref,
+) {
+  ref.watch(activeAccountIdProvider);
   return ref.watch(matchingEngineApiClientProvider).getCurrentMoments();
 });
 
@@ -113,14 +117,12 @@ class MomentSummary {
   }
 
   factory MomentSummary.fromJson(Map<String, dynamic> json) {
-    final participants =
-        (json['participants'] as List<dynamic>? ?? <dynamic>[])
-            .map(
-              (item) => MomentParticipantSummary.fromJson(
-                item as Map<String, dynamic>,
-              ),
-            )
-            .toList();
+    final participants = (json['participants'] as List<dynamic>? ?? <dynamic>[])
+        .map(
+          (item) =>
+              MomentParticipantSummary.fromJson(item as Map<String, dynamic>),
+        )
+        .toList();
 
     return MomentSummary(
       id: json['id'] as String,
@@ -173,7 +175,7 @@ class MatchingEngineApiClient {
     final items = decoded is List
         ? decoded
         : (decoded as Map<String, dynamic>)['items'] as List<dynamic>? ??
-            <dynamic>[];
+              <dynamic>[];
 
     final now = DateTime.now();
 

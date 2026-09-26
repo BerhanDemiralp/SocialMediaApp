@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'home_main_screen.dart';
 import 'home_messages_screen.dart';
 import 'profile_screen.dart';
+import '../../users/presentation/user_conversations.dart';
 import '../../groups/presentation/groups_screen.dart';
 
 class HomeShellScreen extends ConsumerStatefulWidget {
@@ -19,6 +20,7 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(userConversationsProvider);
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,

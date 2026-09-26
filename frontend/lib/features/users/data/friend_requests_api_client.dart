@@ -34,9 +34,9 @@ class FriendRequestsApiClient {
   final SupabaseClient _supabaseClient;
 
   Map<String, String> _headers(String token) => {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      };
+    'Authorization': 'Bearer $token',
+    'Content-Type': 'application/json',
+  };
 
   Future<void> sendRequest({required String targetUserId}) async {
     final session = _supabaseClient.auth.currentSession;
@@ -68,12 +68,8 @@ class FriendRequestsApiClient {
       throw StateError('No auth token available for friend requests.');
     }
 
-    final uri =
-        Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/incoming');
-    final response = await _httpClient.get(
-      uri,
-      headers: _headers(token),
-    );
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/incoming');
+    final response = await _httpClient.get(uri, headers: _headers(token));
 
     if (response.statusCode != 200) {
       throw StateError(
@@ -83,19 +79,17 @@ class FriendRequestsApiClient {
 
     final List<dynamic> body = jsonDecode(response.body) as List<dynamic>;
 
-    return body
-        .map((e) {
-          final map = e as Map<String, dynamic>;
-          final from = map['from'] as Map<String, dynamic>;
-          return FriendRequestItem(
-            id: map['id'] as String,
-            userId: from['id'] as String,
-            username: from['username'] as String,
-            avatarUrl: from['avatar_url'] as String?,
-            direction: FriendRequestDirection.incoming,
-          );
-        })
-        .toList();
+    return body.map((e) {
+      final map = e as Map<String, dynamic>;
+      final from = map['from'] as Map<String, dynamic>;
+      return FriendRequestItem(
+        id: map['id'] as String,
+        userId: from['id'] as String,
+        username: from['username'] as String,
+        avatarUrl: from['avatar_url'] as String?,
+        direction: FriendRequestDirection.incoming,
+      );
+    }).toList();
   }
 
   Future<List<FriendRequestItem>> listOutgoing() async {
@@ -106,12 +100,8 @@ class FriendRequestsApiClient {
       throw StateError('No auth token available for friend requests.');
     }
 
-    final uri =
-        Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/outgoing');
-    final response = await _httpClient.get(
-      uri,
-      headers: _headers(token),
-    );
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/outgoing');
+    final response = await _httpClient.get(uri, headers: _headers(token));
 
     if (response.statusCode != 200) {
       throw StateError(
@@ -121,19 +111,17 @@ class FriendRequestsApiClient {
 
     final List<dynamic> body = jsonDecode(response.body) as List<dynamic>;
 
-    return body
-        .map((e) {
-          final map = e as Map<String, dynamic>;
-          final to = map['to'] as Map<String, dynamic>;
-          return FriendRequestItem(
-            id: map['id'] as String,
-            userId: to['id'] as String,
-            username: to['username'] as String,
-            avatarUrl: to['avatar_url'] as String?,
-            direction: FriendRequestDirection.outgoing,
-          );
-        })
-        .toList();
+    return body.map((e) {
+      final map = e as Map<String, dynamic>;
+      final to = map['to'] as Map<String, dynamic>;
+      return FriendRequestItem(
+        id: map['id'] as String,
+        userId: to['id'] as String,
+        username: to['username'] as String,
+        avatarUrl: to['avatar_url'] as String?,
+        direction: FriendRequestDirection.outgoing,
+      );
+    }).toList();
   }
 
   Future<void> acceptRequest(String id) async {
@@ -156,12 +144,8 @@ class FriendRequestsApiClient {
       throw StateError('No auth token available for friend requests.');
     }
 
-    final uri =
-        Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/$id/$action');
-    final response = await _httpClient.patch(
-      uri,
-      headers: _headers(token),
-    );
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/friends/requests/$id/$action');
+    final response = await _httpClient.patch(uri, headers: _headers(token));
 
     if (response.statusCode != 200) {
       throw StateError(

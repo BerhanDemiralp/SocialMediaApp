@@ -1,7 +1,13 @@
+import '../../users/data/user_session.dart';
+import '../../../core/widgets/app_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/app_text_field.dart';
+import '../../groups/data/groups_repository.dart';
+import '../../groups/presentation/group_members_screen.dart';
+import '../../users/presentation/user_identity_view.dart';
+import '../../users/data/user_identity_adapters.dart';
 import '../domain/chat_message.dart';
 import 'chat_controller.dart';
 
@@ -52,6 +58,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool? _momentOtherFriendConsentOverride;
   bool _momentFriendshipLockedOverride = false;
   bool _isSubmittingFriendshipResponse = false;
+  bool _isOpeningGroupDetails = false;
+
+  Future<void> _openGroupDetails() async {
+    if (_isOpeningGroupDetails) return;
+    setState(() => _isOpeningGroupDetails = true);
+    try {
+      final groups = await ref.read(groupsRepositoryProvider).listMyGroups();
+      final group = groups.firstWhere(
+        (group) => group.conversationId == widget.conversationId,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => GroupMembersScreen(
+            groupId: group.id,
+            groupName: group.name,
+            inviteCode: group.inviteCode,
+            groupConversationId: group.conversationId,
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showAppNotice(context, 'Could not load group details. Try again.');
+    } finally {
+      if (mounted) setState(() => _isOpeningGroupDetails = false);
+    }
+  }
 
   bool? get _momentFriendConsent =>
       _momentFriendConsentOverride ?? widget.momentFriendConsent;
@@ -90,7 +124,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final chatState = ref.watch(
       conversationChatControllerProvider(widget.conversationId!),
     );
-    final currentUserId = ref.watch(currentUserIdProvider).valueOrNull;
+    final currentUserId = ref.watch(activeAccountIdProvider);
 
     if (_lastWritable != chatState.writable) {
       _lastWritable = chatState.writable;
@@ -127,15 +161,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
-        title: Text(
-          widget.title ??
-              (widget.isGroup
-                  ? 'Group chat'
-                  : widget.isTemporary
-                  ? 'Moment chat'
-                  : 'Chat'),
+        title: InkWell(
+          onTap: widget.isGroup && !widget.isTemporary
+              ? _openGroupDetails
+              : null,
+          child: Text(
+            widget.title ??
+                (widget.isGroup
+                    ? 'Group chat'
+                    : widget.isTemporary
+                    ? 'Moment chat'
+                    : 'Chat'),
+          ),
         ),
         centerTitle: false,
+        actions: [
+          if (widget.isGroup && !widget.isTemporary)
+            IconButton(
+              tooltip: 'Group info',
+              onPressed: _isOpeningGroupDetails ? null : _openGroupDetails,
+              icon: const Icon(Icons.info_outline),
+            ),
+        ],
         bottom: widget.isTemporary || widget.isGroup
             ? PreferredSize(
                 preferredSize: const Size.fromHeight(24),
@@ -294,9 +341,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Arkadaslik cevabi guncellenemedi.')),
-      );
+      showAppNotice(context, 'Arkadaslik cevabi guncellenemedi.');
     } finally {
       if (mounted) {
         setState(() {
@@ -334,10 +379,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       itemBuilder: (context, index) {
         final message = messages[index];
         final isMine = message.senderId == currentUserId;
+        final continuesPrevious =
+            index > 0 && messages[index - 1].senderId == message.senderId;
+        final continuesNext =
+            index + 1 < messages.length &&
+            messages[index + 1].senderId == message.senderId;
+        final showSender = !isMine && !continuesPrevious;
         return _MessageBubble(
           message: message,
           isMine: isMine,
-          showSender: widget.isGroup && !isMine,
+          showSender: showSender,
+          continuesPrevious: continuesPrevious,
+          continuesNext: continuesNext,
         );
       },
     );
@@ -505,11 +558,15 @@ class _MessageBubble extends StatelessWidget {
     required this.message,
     required this.isMine,
     required this.showSender,
+    required this.continuesPrevious,
+    required this.continuesNext,
   });
 
   final ChatMessage message;
   final bool isMine;
   final bool showSender;
+  final bool continuesPrevious;
+  final bool continuesNext;
 
   @override
   Widget build(BuildContext context) {
@@ -523,75 +580,90 @@ class _MessageBubble extends StatelessWidget {
         : theme.colorScheme.onSurface;
 
     final borderRadius = BorderRadius.only(
-      topLeft: Radius.circular(isMine ? 16 : 4),
-      topRight: Radius.circular(isMine ? 4 : 16),
-      bottomLeft: const Radius.circular(16),
-      bottomRight: const Radius.circular(16),
+      topLeft: Radius.circular(!isMine && !continuesPrevious ? 4 : 12),
+      topRight: Radius.circular(isMine && !continuesPrevious ? 4 : 12),
+      bottomLeft: const Radius.circular(12),
+      bottomRight: const Radius.circular(12),
     );
 
     final screenWidth = MediaQuery.of(context).size.width;
 
     final bubble = Container(
-      margin: EdgeInsets.symmetric(vertical: 4).copyWith(
+      margin: EdgeInsets.only(
+        top: continuesPrevious ? 1 : 4,
+        bottom: continuesNext ? 1 : 4,
         left: isMine ? screenWidth * 0.2 : 8,
         right: isMine ? 8 : screenWidth * 0.2,
       ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: borderRadius,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 4,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showSender) ...[
-                Text(
-                  message.senderUsername ?? 'Group member',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.secondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-              ],
-              Text(message.content, style: TextStyle(color: textColor)),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Text(
-                  _formatMessageTime(message.createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: textColor,
-                    fontSize: 10,
-                  ),
-                ),
+      child: IntrinsicWidth(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: borderRadius,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showSender) ...[
+                  UserName(
+                    user: message.identity,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isMine ? textColor : theme.colorScheme.secondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        message.content,
+                        style: TextStyle(color: textColor),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatMessageTime(message.createdAt),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textColor,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
 
-    if (!showSender) {
-      return Align(alignment: alignment, child: bubble);
-    }
-
     return Align(
       alignment: alignment,
       child: Row(
+        mainAxisAlignment: isMine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          _SenderAvatar(message: message),
+          if (!isMine)
+            if (showSender)
+              _SenderAvatar(message: message)
+            else
+              const SizedBox(width: 40),
           Flexible(child: bubble),
         ],
       ),
@@ -606,25 +678,12 @@ class _SenderAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final username = message.senderUsername ?? '?';
-    final avatarUrl = message.senderAvatarUrl;
-
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
-      child: CircleAvatar(
+      child: UserIdentityView(
+        user: message.identity,
+        layout: UserIdentityLayout.avatar,
         radius: 16,
-        backgroundColor: theme.colorScheme.tertiaryContainer,
-        foregroundColor: theme.colorScheme.onTertiaryContainer,
-        backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-            ? NetworkImage(avatarUrl)
-            : null,
-        child: avatarUrl == null || avatarUrl.isEmpty
-            ? Text(
-                username.isNotEmpty ? username[0].toUpperCase() : '?',
-                style: theme.textTheme.labelSmall,
-              )
-            : null,
       ),
     );
   }

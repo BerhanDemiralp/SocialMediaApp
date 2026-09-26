@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,10 +7,15 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/theme/theme_controller.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../auth/data/auth_repository.dart';
-import '../data/user_profile_api_client.dart';
-import 'app_avatar.dart';
+import '../../users/data/user_profile_api_client.dart';
+import '../../users/presentation/app_avatar.dart';
+import '../../users/presentation/user_identity_view.dart';
+import '../../users/data/user_identity_adapters.dart';
+import '../../users/data/user_session.dart';
 
 final userProfileProvider = FutureProvider.autoDispose<UserProfile>((ref) {
+  ref.watch(activeAccountIdProvider);
+  ref.watch(identityRevisionProvider);
   final client = ref.watch(userProfileApiClientProvider);
   return client.getMyProfile();
 });
@@ -172,16 +178,9 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        children: [
-          AppAvatar(
-            username: profile.username,
-            avatarUrl: profile.avatarUrl,
-            radius: 40,
-          ),
-          const SizedBox(height: 10),
-          Text(profile.username, style: Theme.of(context).textTheme.titleLarge),
-        ],
+      child: UserIdentityView(
+        user: profile.identity,
+        layout: UserIdentityLayout.header,
       ),
     );
   }
@@ -222,28 +221,30 @@ class _EditProfileDialogState extends ConsumerState<_EditProfileDialog> {
     final username = _usernameController.text.trim();
 
     if (username.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Username is required.')));
+      showAppNotice(context, 'Username is required.');
       return;
     }
 
     setState(() => _isSaving = true);
 
     try {
-      await ref
+      final updated = await ref
           .read(userProfileApiClientProvider)
           .updateMyProfile(username: username, avatarUrl: _avatarUrl);
 
-      if (mounted) {
+      if (mounted && ref.read(activeAccountIdProvider) == widget.profile.id) {
+        ref.read(userIdentityOverridesProvider.notifier).state = {
+          ...ref.read(userIdentityOverridesProvider),
+          updated.id: updated.identity,
+        };
+        ref.read(identityRevisionProvider.notifier).state++;
         Navigator.of(context).pop(true);
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Bad state: ', '')),
-          ),
+        showAppNotice(
+          context,
+          error.toString().replaceFirst('Bad state: ', ''),
         );
       }
     } finally {
@@ -378,25 +379,17 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
     final confirmPassword = _confirmPasswordController.text;
 
     if (currentPassword.isEmpty || newPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Current and new password are required.')),
-      );
+      showAppNotice(context, 'Current and new password are required.');
       return;
     }
 
     if (newPassword.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('New password must be at least 6 characters.'),
-        ),
-      );
+      showAppNotice(context, 'New password must be at least 6 characters.');
       return;
     }
 
     if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('New passwords do not match.')),
-      );
+      showAppNotice(context, 'New passwords do not match.');
       return;
     }
 
@@ -412,16 +405,13 @@ class _ChangePasswordDialogState extends ConsumerState<_ChangePasswordDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Password changed.')));
+        showAppNotice(context, 'Password changed.');
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.toString().replaceFirst('Bad state: ', '')),
-          ),
+        showAppNotice(
+          context,
+          error.toString().replaceFirst('Bad state: ', ''),
         );
       }
     } finally {

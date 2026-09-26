@@ -59,19 +59,28 @@ class AppAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final preset = avatarPresetFor(avatarUrl);
-    final imageUrl = avatarUrl != null && !avatarUrl!.startsWith('preset:')
-        ? avatarUrl
+    final value = avatarUrl?.trim();
+    final preset = avatarPresetFor(value);
+    final uri = value == null ? null : Uri.tryParse(value);
+    final imageUrl =
+        uri != null &&
+            (uri.scheme == 'http' || uri.scheme == 'https') &&
+            uri.host.isNotEmpty
+        ? value
         : null;
 
     return CircleAvatar(
       radius: radius,
       backgroundColor: preset?.color ?? Theme.of(context).colorScheme.primary,
-      foregroundColor: Colors.white,
-      backgroundImage: imageUrl == null ? null : NetworkImage(imageUrl),
-      child: imageUrl != null
-          ? null
-          : Icon(preset?.icon ?? Icons.person, size: radius),
+      foregroundColor:
+          preset != null &&
+              ThemeData.estimateBrightnessForColor(preset.color) ==
+                  Brightness.light
+          ? Colors.black87
+          : Colors.white,
+      foregroundImage: imageUrl == null ? null : NetworkImage(imageUrl),
+      onForegroundImageError: imageUrl == null ? null : (_, _) {},
+      child: Icon(preset?.icon ?? Icons.person, size: radius),
     );
   }
 }

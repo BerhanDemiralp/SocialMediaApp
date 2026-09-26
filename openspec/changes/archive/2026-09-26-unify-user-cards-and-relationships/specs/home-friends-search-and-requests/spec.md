@@ -1,36 +1,4 @@
-## Purpose
-
-Define the Home/Friends experience in the mobile app for searching users by
-username, sending friend requests, and managing incoming/outgoing requests in a
-simple, low-pressure flow.
-
-## Requirements
-
-### Requirement: Home friends search surface
-The mobile app SHALL provide a Home/Friends surface where an authenticated user can search for other users by username and view results with enough information to send friend requests.
-
-#### Scenario: Search by username
-- **WHEN** an authenticated user enters a non-empty search query in the Home search field
-- **THEN** the app SHALL call the backend user search endpoint with the query and a reasonable limit
-- **AND** the app SHALL display a list of matching users (excluding the current user) with username and avatar.
-
-#### Scenario: Empty results
-- **WHEN** an authenticated user searches for a username that has no matches
-- **THEN** the app SHALL show an empty state indicating that no users were found
-- **AND** SHALL NOT show stale results from previous searches.
-
-### Requirement: Send friend request from search result
-The Home/Friends UI SHALL allow sending a friend request directly from a search result row.
-
-#### Scenario: Send friend request
-- **WHEN** an authenticated user taps the “Add friend” action on a search result
-- **THEN** the app SHALL call the friend request API with the target user identifier
-- **AND** on success, the UI SHALL reflect that a request is pending (e.g., button state or label updated).
-
-#### Scenario: Prevent duplicate requests
-- **WHEN** the user attempts to send a friend request to a user who already has a pending or accepted friendship
-- **THEN** the app SHALL show a non-blocking error message
-- **AND** SHALL NOT create a duplicate request.
+## MODIFIED Requirements
 
 ### Requirement: Manage incoming and outgoing friend requests from Home
 The Home/Friends surface SHALL show incoming and outgoing friend requests in lists using the shared user-card and relationship-action system. Search results for the same users SHALL expose the same relationship actions.
@@ -62,6 +30,8 @@ The Home/Friends surface SHALL show incoming and outgoing friend requests in lis
 - **WHEN** the same person appears in search and a request list
 - **THEN** both cards SHALL use the same relationship state and pending-operation lock
 - **AND** an action completed in either location SHALL update both
+
+## ADDED Requirements
 
 ### Requirement: Existing friends on Find Friends
 The Find Friends page SHALL display a Friends section below incoming and outgoing requests using the shared user cards and central relationship state.

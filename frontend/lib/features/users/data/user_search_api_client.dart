@@ -6,11 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/env/app_env.dart';
 
 class UserSummary {
-  const UserSummary({
-    required this.id,
-    required this.username,
-    this.avatarUrl,
-  });
+  const UserSummary({required this.id, required this.username, this.avatarUrl});
 
   final String id;
   final String username;
@@ -67,4 +63,3 @@ class UserSearchApiClient {
         .toList();
   }
 }
-

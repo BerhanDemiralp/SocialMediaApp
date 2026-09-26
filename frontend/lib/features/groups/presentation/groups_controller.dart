@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/groups_repository.dart';
 import '../data/groups_api_client.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../users/data/user_session.dart';
 
 class GroupsState {
   const GroupsState({
@@ -42,8 +43,10 @@ class GroupsController extends StateNotifier<GroupsState> {
     try {
       state = state.copyWith(isLoading: true, error: null);
       final groups = await _repository.listMyGroups();
+      if (!mounted) return;
       state = state.copyWith(groups: groups, isLoading: false);
     } catch (_) {
+      if (!mounted) return;
       state = GroupsState(
         groups: const <GroupSummary>[],
         isLoading: false,
@@ -90,9 +93,10 @@ class GroupsController extends StateNotifier<GroupsState> {
 
 final groupsControllerProvider =
     StateNotifierProvider<GroupsController, GroupsState>((ref) {
-  final repository = ref.watch(groupsRepositoryProvider);
-  // Watch auth state so when user logs out/logs in as someone else,
-  // this provider is rebuilt and groups are reloaded for the new user.
-  ref.watch(appAuthStateProvider);
-  return GroupsController(repository);
-});
+      final repository = ref.watch(groupsRepositoryProvider);
+      // Watch auth state so when user logs out/logs in as someone else,
+      // this provider is rebuilt and groups are reloaded for the new user.
+      ref.watch(appAuthStateProvider);
+      ref.watch(activeAccountIdProvider);
+      return GroupsController(repository);
+    });

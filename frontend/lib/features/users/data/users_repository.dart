@@ -6,8 +6,7 @@ import 'friend_requests_api_client.dart';
 import 'friends_api_client.dart';
 import 'user_search_api_client.dart';
 
-final homeFriendsRepositoryProvider =
-    Provider<HomeFriendsRepository>((ref) {
+final usersRepositoryProvider = Provider<UsersRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
   final httpClient = TimingHttpClient();
   final searchApi = UserSearchApiClient(httpClient, supabaseClient);
@@ -16,21 +15,21 @@ final homeFriendsRepositoryProvider =
 
   ref.onDispose(httpClient.close);
 
-  return HomeFriendsRepository(
+  return UsersRepository(
     searchApiClient: searchApi,
     friendRequestsApiClient: requestsApi,
     friendsApiClient: friendsApi,
   );
 });
 
-class HomeFriendsRepository {
-  HomeFriendsRepository({
+class UsersRepository {
+  UsersRepository({
     required UserSearchApiClient searchApiClient,
     required FriendRequestsApiClient friendRequestsApiClient,
     required FriendsApiClient friendsApiClient,
-  })  : _searchApiClient = searchApiClient,
-        _friendRequestsApiClient = friendRequestsApiClient,
-        _friendsApiClient = friendsApiClient;
+  }) : _searchApiClient = searchApiClient,
+       _friendRequestsApiClient = friendRequestsApiClient,
+       _friendsApiClient = friendsApiClient;
 
   final UserSearchApiClient _searchApiClient;
   final FriendRequestsApiClient _friendRequestsApiClient;

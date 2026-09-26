@@ -36,7 +36,8 @@ class FriendConversationSummary {
   final String? lastMessageSenderUsername;
   final bool writable;
 
-  bool get isGroup => conversationType == 'group' || conversationType == 'group_pair';
+  bool get isGroup =>
+      conversationType == 'group' || conversationType == 'group_pair';
   bool get isTemporary => conversationType == 'group_pair';
 }
 
@@ -91,9 +92,7 @@ class FriendConversationsApiClient {
       throw StateError('No auth context available for conversations.');
     }
 
-    final uri = Uri.parse(
-      '${AppEnv.apiBaseUrl}/conversations?limit=$limit',
-    );
+    final uri = Uri.parse('${AppEnv.apiBaseUrl}/conversations?limit=$limit');
 
     final response = await _httpClient.get(
       uri,
@@ -114,8 +113,10 @@ class FriendConversationsApiClient {
     final List<dynamic> items = body['items'] as List<dynamic>? ?? <dynamic>[];
 
     return items
-        .map((raw) =>
-            _mapSummaryFromJson(raw as Map<String, dynamic>, currentUserId))
+        .map(
+          (raw) =>
+              _mapSummaryFromJson(raw as Map<String, dynamic>, currentUserId),
+        )
         .toList();
   }
 
@@ -123,9 +124,8 @@ class FriendConversationsApiClient {
     Map<String, dynamic> map,
     String currentUserId,
   ) {
-    final participants =
-        (map['participants'] as List<dynamic>? ?? <dynamic>[])
-            .cast<Map<String, dynamic>>();
+    final participants = (map['participants'] as List<dynamic>? ?? <dynamic>[])
+        .cast<Map<String, dynamic>>();
 
     Map<String, dynamic>? other;
     if (participants.isNotEmpty) {
@@ -139,8 +139,9 @@ class FriendConversationsApiClient {
         map['lastMessage'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     final createdAtRaw = lastMessage['created_at'] as String?;
-    final createdAt =
-        createdAtRaw != null ? DateTime.parse(createdAtRaw).toLocal() : null;
+    final createdAt = createdAtRaw != null
+        ? DateTime.parse(createdAtRaw).toLocal()
+        : null;
     final conversationType = map['type'] as String? ?? 'friend';
     final groupName = map['groupName'] as String?;
 
@@ -148,22 +149,22 @@ class FriendConversationsApiClient {
       friendId: conversationType == 'group'
           ? null
           : other != null
-              ? other['id'] as String
-              : currentUserId,
+          ? other['id'] as String
+          : currentUserId,
       conversationId: map['id'] as String,
       matchId: map['friendMatchId'] as String?,
       displayName: conversationType == 'group'
           ? groupName ?? map['title'] as String? ?? 'Group chat'
           : (other != null ? other['username'] : map['title']) as String? ??
-              'Conversation',
+                'Conversation',
       conversationType: conversationType,
       groupId: map['groupId'] as String?,
       groupName: groupName,
       avatarUrl: conversationType == 'group'
           ? null
           : other != null
-              ? other['avatar_url'] as String?
-              : null,
+          ? other['avatar_url'] as String?
+          : null,
       lastMessagePreview: lastMessage['content'] as String?,
       lastMessageAt: createdAt,
       lastMessageSenderId: lastMessage['sender_id'] as String?,

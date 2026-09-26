@@ -1,11 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../chat/data/chat_repository.dart';
-import '../../chat/data/chat_api_client.dart';
-import '../../chat/domain/chat_message.dart';
+import '../data/chat_repository.dart';
+import '../data/chat_api_client.dart';
+import '../domain/chat_message.dart';
 
 class ChatState {
   final List<ChatMessage> messages;
@@ -43,7 +42,7 @@ class ChatState {
 
 class ConversationChatController extends StateNotifier<ChatState> {
   ConversationChatController(this._repository, this._conversationId)
-      : super(ChatState.initial()) {
+    : super(ChatState.initial()) {
     _init();
   }
 
@@ -55,6 +54,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
     try {
       _repository.joinConversation(_conversationId);
       await refresh(showLoading: true);
+      if (!mounted) return;
 
       _subscription = _repository.messageStream.listen((message) {
         if (message.conversationId == _conversationId) {
@@ -64,6 +64,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to load messages.',
@@ -81,6 +82,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
       limit: 50,
     );
 
+    if (!mounted) return;
     state = state.copyWith(
       messages: _sortMessages(page.items),
       writable: page.writable,
@@ -99,6 +101,7 @@ class ConversationChatController extends StateNotifier<ChatState> {
       id: optimisticId,
       conversationId: _conversationId,
       senderId: _repository.currentUserId ?? '',
+      senderUsername: 'You',
       content: trimmedContent,
       createdAt: DateTime.now(),
     );
@@ -156,18 +159,11 @@ class ConversationChatController extends StateNotifier<ChatState> {
   }
 }
 
-final conversationChatControllerProvider =
-    StateNotifierProvider.autoDispose
-        .family<ConversationChatController, ChatState, String>(
-            (ref, conversationId) {
-  final repository = ref.watch(chatRepositoryProvider);
-  return ConversationChatController(repository, conversationId);
-});
-
-final currentUserIdProvider = StreamProvider<String?>((ref) async* {
-  final client = Supabase.instance.client;
-  yield client.auth.currentUser?.id;
-  await for (final event in client.auth.onAuthStateChange) {
-    yield event.session?.user.id;
-  }
-});
+final conversationChatControllerProvider = StateNotifierProvider.autoDispose
+    .family<ConversationChatController, ChatState, String>((
+      ref,
+      conversationId,
+    ) {
+      final repository = ref.watch(chatRepositoryProvider);
+      return ConversationChatController(repository, conversationId);
+    });

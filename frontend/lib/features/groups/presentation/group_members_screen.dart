@@ -2,26 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../../core/widgets/app_notice.dart';
 import '../data/groups_repository.dart';
 import '../data/groups_api_client.dart';
 import 'groups_controller.dart';
-import '../../home/presentation/user_action_tile.dart';
-import '../../home/data/home_friends_repository.dart';
-import '../../home/data/home_messaging_repository.dart';
-import '../../../core/analytics/app_analytics.dart';
-import '../../home/presentation/home_friends_screen.dart';
-import '../../home/presentation/home_messages_screen.dart';
+import '../../users/data/user_identity_adapters.dart';
+import '../../users/data/user_session.dart';
+import '../../users/presentation/user_card.dart';
+import '../../users/presentation/user_relationships_controller.dart';
 
-/// Loads members for a given group id via Riverpod so we don't
-/// recreate the Future on every rebuild.
-final groupMembersProvider = FutureProvider.family
-    .autoDispose<List<GroupMemberSummary>, String>((ref, groupId) {
-  final repository = ref.watch(groupsRepositoryProvider);
-  return repository.listGroupMembers(groupId);
-});
+final groupMembersProvider = FutureProvider.autoDispose
+    .family<List<GroupMemberSummary>, String>((ref, groupId) {
+      ref.watch(activeAccountIdProvider);
+      ref.watch(identityRevisionProvider);
+      return ref.watch(groupsRepositoryProvider).listGroupMembers(groupId);
+    });
 
-class GroupMembersScreen extends ConsumerWidget {
+class GroupMembersScreen extends ConsumerStatefulWidget {
   const GroupMembersScreen({
     super.key,
     required this.groupId,
@@ -29,256 +26,123 @@ class GroupMembersScreen extends ConsumerWidget {
     required this.inviteCode,
     this.groupConversationId,
   });
-
   final String groupId;
   final String groupName;
   final String inviteCode;
   final String? groupConversationId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final groupsController = ref.read(groupsControllerProvider.notifier);
-    final friendsRepo = ref.read(homeFriendsRepositoryProvider);
-    final messagingRepo = ref.read(homeMessagingRepositoryProvider);
-    final analytics = ref.read(appAnalyticsProvider);
+  ConsumerState<GroupMembersScreen> createState() => _GroupMembersScreenState();
+}
 
-    // Shared friend / request state used also by the Find Friends screen.
-    final incomingAsync = ref.watch(incomingRequestsProvider);
-    final outgoingAsync = ref.watch(outgoingRequestsProvider);
-    final friendsAsync = ref.watch(friendsProvider);
+class _GroupMembersScreenState extends ConsumerState<GroupMembersScreen> {
+  bool _leaving = false;
 
+  Future<void> _leave() async {
+    if (_leaving) return;
+    setState(() => _leaving = true);
+    final account = ref.read(activeAccountIdProvider);
+    try {
+      await ref.read(groupsRepositoryProvider).leaveGroup(widget.groupId);
+      if (!mounted || ref.read(activeAccountIdProvider) != account) return;
+      ref.invalidate(groupsControllerProvider);
+      ref.read(conversationsRevisionProvider.notifier).state++;
+      showAppNotice(context, 'You left the group.');
+      context.go('/groups');
+    } catch (_) {
+      if (mounted) showAppNotice(context, 'Failed to leave group.');
+    } finally {
+      if (mounted) setState(() => _leaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final members = ref.watch(groupMembersProvider(widget.groupId));
     return Scaffold(
-      appBar: AppBar(
-        title: Text(groupName),
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 24),
-          Icon(
-            Icons.groups,
-            size: 64,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: groupConversationId == null
-                ? null
-                : () {
-                    final route = Uri(
-                      path: '/conversation/$groupConversationId',
-                      queryParameters: {
-                        'type': 'group',
-                        'title': groupName,
-                      },
-                    ).toString();
-                    context.push(route);
-                  },
-            child: const Text('Open group chat'),
-          ),
-          const SizedBox(height: 8),
-          FilledButton.tonal(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: inviteCode));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Invite code copied: $inviteCode'),
+      appBar: AppBar(title: Text(widget.groupName)),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(groupMembersProvider(widget.groupId));
+          await ref.read(userRelationshipsProvider.notifier).refresh();
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: [
+            Icon(
+              Icons.groups,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonal(
+                  onPressed: widget.groupConversationId == null
+                      ? null
+                      : () => context.push(
+                          Uri(
+                            path: '/conversation/${widget.groupConversationId}',
+                            queryParameters: {
+                              'type': 'group',
+                              'title': widget.groupName,
+                            },
+                          ).toString(),
+                        ),
+                  child: const Text('Open group chat'),
                 ),
-              );
-            },
-            child: const Text('Invite Code'),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ref.watch(groupMembersProvider(groupId)).when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Center(
-                    child: Text('Failed to load group members.'),
-                  ),
-                  data: (members) {
-                    if (members.isEmpty) {
-                      return const Center(
-                        child: Text('No members found in this group.'),
+                FilledButton.tonal(
+                  onPressed: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: widget.inviteCode),
+                    );
+                    if (context.mounted) {
+                      showAppNotice(
+                        context,
+                        'Invite code copied: ${widget.inviteCode}',
                       );
                     }
-
-                    final hasRelationshipData = friendsAsync.hasValue &&
-                        incomingAsync.hasValue &&
-                        outgoingAsync.hasValue;
-
-                    final friends = hasRelationshipData
-                        ? friendsAsync.requireValue
-                        : const <dynamic>[];
-                    final incoming = hasRelationshipData
-                        ? incomingAsync.requireValue
-                        : const <dynamic>[];
-                    final outgoing = hasRelationshipData
-                        ? outgoingAsync.requireValue
-                        : const <dynamic>[];
-
-                    final friendIds =
-                        friends.map((f) => f.id as String).toSet();
-                    final incomingUserIds =
-                        incoming.map((r) => r.userId as String).toSet();
-                    final outgoingUserIds =
-                        outgoing.map((r) => r.userId as String).toSet();
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: members.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == members.length) {
-                          final isMember = members.any((m) => m.isSelf);
-                          if (!isMember) {
-                            return const SizedBox.shrink();
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 24),
-                            child: FilledButton.tonal(
-                              onPressed: () async {
-                                try {
-                                  await groupsController.leaveGroup(groupId);
-                                  ref.invalidate(friendConversationsProvider);
-                                  if (context.mounted) {
-                                    Navigator.of(context).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('You left the group.'),
-                                      ),
-                                    );
-                                  }
-                                } catch (_) {
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Failed to leave group.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              child: const Text('Exit group'),
-                            ),
-                          );
-                        }
-
-                        final member = members[index];
-
-                        final isFriend = friendIds.contains(member.id);
-                        final hasIncomingRequest =
-                            incomingUserIds.contains(member.id);
-                        final hasOutgoingRequest =
-                            outgoingUserIds.contains(member.id);
-
-                        return Card(
-                          child: UserActionTile(
-                            userId: member.id,
-                            username: member.username,
-                            avatarUrl: member.avatarUrl,
-                            isSelf: member.isSelf,
-                            isFriend: isFriend,
-                            hasIncomingRequest: hasIncomingRequest,
-                            hasOutgoingRequest: hasOutgoingRequest,
-                            onAddFriend: member.isSelf
-                                ? null
-                                : () async {
-                                    if (!hasRelationshipData) return;
-                                    try {
-                                      await friendsRepo.sendFriendRequest(
-                                        member.id,
-                                      );
-                                      analytics.trackEvent(
-                                        'friend_request_sent_from_group',
-                                        {'target_user_id': member.id},
-                                      );
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Friend request sent to ${member.username}',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                      ref
-                                          .invalidate(outgoingRequestsProvider);
-                                    } catch (_) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Could not send friend request.',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  },
-                            onRemoveFriend: isFriend
-                                ? () async {
-                                    try {
-                                      await friendsRepo.removeFriend(
-                                        member.id,
-                                      );
-                                      analytics.trackEvent(
-                                        'friend_removed_from_group',
-                                        {'friend_id': member.id},
-                                      );
-                                      ref.invalidate(friendsProvider);
-                                    } catch (_) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Could not remove friend.',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    }
-                                  }
-                                : null,
-                            onOpenChat: () async {
-                              if (!isFriend || member.isSelf) return;
-                              try {
-                                final ensured =
-                                    await messagingRepo.ensureFriendConversation(
-                                  member.id,
-                                );
-                                analytics.trackEvent(
-                                  'friend_conversation_opened_from_group',
-                                  {'conversation_id': ensured.conversationId},
-                                );
-                                if (context.mounted) {
-                                  Navigator.of(context).pushNamed(
-                                    '/conversation/${ensured.conversationId}',
-                                  );
-                                }
-                              } catch (_) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Could not open conversation with user.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        );
-                      },
-                    );
                   },
+                  child: const Text('Invite Code'),
                 ),
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            members.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => Column(
+                children: [
+                  const Text('Failed to load group members.'),
+                  TextButton(
+                    onPressed: () =>
+                        ref.invalidate(groupMembersProvider(widget.groupId)),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+              data: (users) => Column(
+                children: [
+                  if (users.isEmpty)
+                    const Text('No members found in this group.'),
+                  for (final member in users)
+                    UserCard(key: ValueKey(member.id), user: member.identity),
+                  if (users.any((user) => user.isSelf))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: FilledButton.tonal(
+                        onPressed: _leaving ? null : _leave,
+                        child: const Text('Exit group'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

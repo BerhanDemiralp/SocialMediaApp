@@ -1,3 +1,4 @@
+import '../../../core/widgets/app_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,16 +39,14 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
     void showSnack(String message) {
       if (message.isEmpty) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      showAppNotice(context, message);
     }
 
-    if (state.error != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showSnack(state.error!);
-      });
-    }
+    ref.listen<GroupsState>(groupsControllerProvider, (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        showSnack(next.error!);
+      }
+    });
 
     void openGroup(GroupSummary group) {
       dismissKeyboard();
