@@ -15,6 +15,7 @@ final groupMembersProvider = FutureProvider.autoDispose
     .family<List<GroupMemberSummary>, String>((ref, groupId) {
       ref.watch(activeAccountIdProvider);
       ref.watch(identityRevisionProvider);
+      ref.listen(appResyncRevisionProvider, (_, _) => ref.invalidateSelf());
       return ref.watch(groupsRepositoryProvider).listGroupMembers(groupId);
     });
 

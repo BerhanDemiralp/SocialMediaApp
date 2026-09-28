@@ -12,10 +12,43 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { Subject } from 'rxjs';
+import { serializeMomentMatch } from '../matching-engine/matching-engine.serializer';
+import { messageTtlMs } from '../notifications/notification-config';
+import {
+  enqueueNotification,
+  pushEnabled,
+} from '../notifications/notification-outbox';
 
 @Injectable()
 export class ConversationsService {
+  private readonly committedMessages = new Subject<
+    Prisma.messagesGetPayload<{ include: { sender: true } }>
+  >();
+  readonly messageCreated$ = this.committedMessages.asObservable();
   constructor(private readonly prisma: PrismaService) {}
+
+  async getConversationAudience(conversationId: string): Promise<string[]> {
+    const conversation = await this.prisma.conversations.findUnique({
+      where: { id: conversationId },
+      select: {
+        deleted_at: true,
+        type: true,
+        participants: { select: { user_id: true } },
+        group: {
+          select: { deleted_at: true, members: { select: { user_id: true } } },
+        },
+      },
+    });
+    if (!conversation || conversation.deleted_at) return [];
+    const audience =
+      conversation.type === ConversationType.group
+        ? conversation.group && !conversation.group.deleted_at
+          ? conversation.group.members
+          : []
+        : conversation.participants;
+    return [...new Set(audience.map((participant) => participant.user_id))];
+  }
 
   async listConversationsForUser(
     userId: string,
@@ -112,9 +145,32 @@ export class ConversationsService {
         data: { updated_at: new Date() },
       });
 
+      if (pushEnabled()) {
+        const participants =
+          conversation.type === ConversationType.group
+            ? await tx.group_members.findMany({
+                where: { group_id: conversation.group!.id },
+                select: { user_id: true },
+              })
+            : await tx.conversation_participants.findMany({
+                where: { conversation_id: conversation.id },
+                select: { user_id: true },
+              });
+        await enqueueNotification(tx, {
+          kind: 'message',
+          sourceId: created.id,
+          conversationId: conversation.id,
+          recipients: participants
+            .map((p) => p.user_id)
+            .filter((id) => id !== userId),
+          expiresAt: new Date(Date.now() + messageTtlMs()),
+        });
+      }
+
       return created;
     });
 
+    this.committedMessages.next(message);
     return message;
   }
 
@@ -301,6 +357,27 @@ export class ConversationsService {
     await this.getAuthorizedConversation(conversationId, userId);
   }
 
+  async notificationDestination(conversationId: string, userId: string, momentId?: string) {
+    const conversation = await this.getAuthorizedConversation(
+      conversationId,
+      userId,
+    );
+    const state = await this.getMomentConversationState(conversationId);
+    const moment = momentId ? await this.prisma.moment_matches.findFirst({
+      where: { id: momentId, conversation_id: conversationId,
+        OR: [{ user_a_id: userId }, { user_b_id: userId }] },
+      include: { user_a: true, user_b: true, conversation: true, group: true },
+    }) : null;
+    if (momentId && !moment) throw new NotFoundException('Moment not found');
+    return {
+      id: conversation.id,
+      type: conversation.type,
+      title: conversation.group?.name ?? conversation.participants?.find(p => p.user_id !== userId)?.user.username ?? 'Chat',
+      writable: state.writable,
+      moment: moment ? serializeMomentMatch(moment) : null,
+    };
+  }
+
   private async getAuthorizedConversation(
     conversationId: string,
     userId: string,
@@ -311,9 +388,11 @@ export class ConversationsService {
         id: true,
         type: true,
         deleted_at: true,
+        participants: { select: { user_id: true, user: { select: { username: true } } } },
         group: {
           select: {
             id: true,
+            name: true,
             deleted_at: true,
           },
         },

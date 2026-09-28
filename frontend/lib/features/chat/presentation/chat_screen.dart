@@ -1,4 +1,6 @@
 import '../../users/data/user_session.dart';
+import '../../notifications/notification_host.dart';
+import '../../notifications/notification_controller.dart';
 import '../../../core/widgets/app_notice.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,6 +51,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  late final NotificationController _notifications;
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _canSend = false;
@@ -99,11 +102,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _notifications = ref.read(notificationControllerProvider.notifier);
     _controller.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    final notifications = _notifications;
+    if (notifications.visibleConversation == widget.conversationId) {
+      notifications.visibleConversation = null;
+    }
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _scrollController.dispose();
@@ -121,6 +129,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final notifications = _notifications;
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      notifications.visibleConversation = widget.conversationId;
+    } else if (notifications.visibleConversation == widget.conversationId) {
+      notifications.visibleConversation = null;
+    }
     final chatState = ref.watch(
       conversationChatControllerProvider(widget.conversationId!),
     );

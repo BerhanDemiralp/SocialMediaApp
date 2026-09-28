@@ -20,6 +20,7 @@ final activeMomentsProvider = FutureProvider.autoDispose<List<MomentSummary>>((
   ref,
 ) {
   ref.watch(activeAccountIdProvider);
+  ref.listen(appResyncRevisionProvider, (_, _) => ref.invalidateSelf());
   return ref.watch(matchingEngineApiClientProvider).getCurrentMoments();
 });
 

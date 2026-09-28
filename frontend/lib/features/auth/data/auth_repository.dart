@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/env/app_env.dart';
 import '../../../core/network/timing_http_client.dart';
+import '../../notifications/notification_host.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
@@ -13,11 +14,21 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
   ref.onDispose(httpClient.close);
 
-  return AuthRepository(supabaseClient, httpClient);
+  return AuthRepository(
+    supabaseClient,
+    httpClient,
+    beforeSignOut: () =>
+        ref.read(notificationControllerProvider.notifier).beforeLogout(),
+  );
 });
 
 class AuthRepository {
-  AuthRepository(this._client, this._httpClient);
+  AuthRepository(
+    this._client,
+    this._httpClient, {
+    Future<void> Function()? beforeSignOut,
+  }) : _beforeSignOut = beforeSignOut;
+  final Future<void> Function()? _beforeSignOut;
 
   final SupabaseClient _client;
   final http.Client _httpClient;
@@ -119,8 +130,9 @@ class AuthRepository {
     return authResponse;
   }
 
-  Future<void> signOut() {
-    return _client.auth.signOut();
+  Future<void> signOut() async {
+    await _beforeSignOut?.call();
+    await _client.auth.signOut();
   }
 
   Future<void> syncCurrentUser() async {

@@ -10,6 +10,7 @@ import { GroupsModule } from './groups/groups.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MatchingEngineModule } from './matching-engine/matching-engine.module';
 import { RequestTimingMiddleware } from './diagnostics/request-timing.middleware';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RequestTimingMiddleware } from './diagnostics/request-timing.middleware
     GroupsModule,
     ConversationsModule,
     MatchingEngineModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [],

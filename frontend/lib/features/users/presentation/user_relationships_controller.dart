@@ -192,7 +192,7 @@ final userRelationshipsProvider =
       ref,
     ) {
       final accountId = ref.watch(activeAccountIdProvider);
-      return UserRelationshipsController(
+      final controller = UserRelationshipsController(
         accountId: accountId,
         repository: accountId == null
             ? null
@@ -200,4 +200,9 @@ final userRelationshipsProvider =
         onChanged: () =>
             ref.read(conversationsRevisionProvider.notifier).state++,
       );
+      ref.listen(
+        appResyncRevisionProvider,
+        (_, _) => unawaited(controller.refresh()),
+      );
+      return controller;
     });

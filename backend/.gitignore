@@ -5,3 +5,6 @@ node_modules
 /generated/prisma
 dist/
 coverage/
+notification-test-server.log
+notification-postgres-tests.log
+.moment-dev/

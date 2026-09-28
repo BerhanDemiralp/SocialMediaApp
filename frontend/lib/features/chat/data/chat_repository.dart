@@ -12,8 +12,8 @@ class ChatRepository {
   ChatRepository({
     required ChatApiClient apiClient,
     required ChatSocketClient socketClient,
-  })  : _apiClient = apiClient,
-        _socketClient = socketClient;
+  }) : _apiClient = apiClient,
+       _socketClient = socketClient;
 
   final ChatApiClient _apiClient;
   final ChatSocketClient _socketClient;
@@ -40,20 +40,11 @@ class ChatRepository {
     _socketClient.leaveConversation(conversationId);
   }
 
-  void sendMessage({
-    required String conversationId,
-    required String content,
-  }) {
-    _socketClient.sendMessage(
-      conversationId: conversationId,
-      content: content,
-    );
+  void sendMessage({required String conversationId, required String content}) {
+    _socketClient.sendMessage(conversationId: conversationId, content: content);
   }
 
-  void setTyping({
-    required String conversationId,
-    required bool isTyping,
-  }) {
+  void setTyping({required String conversationId, required bool isTyping}) {
     _socketClient.setTyping(conversationId: conversationId, isTyping: isTyping);
   }
 
@@ -68,13 +59,12 @@ class ChatRepository {
   }
 }
 
-final chatRepositoryProvider = Provider<ChatRepository>((ref) {
+final chatRepositoryProvider = Provider.autoDispose<ChatRepository>((ref) {
   final supabaseClient = Supabase.instance.client;
   final apiClient = ChatApiClient(TimingHttpClient(), supabaseClient);
-  final socketClient = ChatSocketClient(supabaseClient);
+  final socketClient = ref.watch(chatSocketClientProvider);
   ref.onDispose(() {
     apiClient.close();
-    socketClient.dispose();
   });
   return ChatRepository(apiClient: apiClient, socketClient: socketClient);
 });

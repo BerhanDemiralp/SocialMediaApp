@@ -10,12 +10,15 @@ import '../features/home/presentation/home_shell.dart';
 import '../features/chat/presentation/chat_screen.dart';
 import '../features/groups/presentation/groups_screen.dart';
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   final isAuthenticated = ref.watch(
     appAuthStateProvider.select((state) => state.isAuthenticated),
   );
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     errorBuilder: (context, state) => Scaffold(
       appBar: AppBar(title: const Text('Moment')),

@@ -8,7 +8,10 @@ final _activeNotices = Expando<_NoticeHandle>();
 /// A new notice replaces the previous one instead of building a queue.
 void showAppNotice(BuildContext context, String message) {
   if (!context.mounted || message.trim().isEmpty) return;
-  final overlay = Overlay.of(context, rootOverlay: true);
+  final overlay =
+      Overlay.maybeOf(context, rootOverlay: true) ??
+      Navigator.maybeOf(context, rootNavigator: true)?.overlay;
+  if (overlay == null) return;
   _activeNotices[overlay]?.dismiss();
 
   final theme = Theme.of(context);

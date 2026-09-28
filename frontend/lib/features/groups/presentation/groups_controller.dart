@@ -33,25 +33,26 @@ class GroupsState {
 }
 
 class GroupsController extends StateNotifier<GroupsState> {
-  GroupsController(this._repository) : super(GroupsState.initial()) {
+  GroupsController(this._repository, {this.onChanged})
+    : super(GroupsState.initial()) {
     loadGroups();
   }
 
   final GroupsRepository _repository;
+  final void Function()? onChanged;
+  int _loadSerial = 0;
 
   Future<void> loadGroups() async {
+    if (!mounted) return;
+    final serial = ++_loadSerial;
     try {
       state = state.copyWith(isLoading: true, error: null);
       final groups = await _repository.listMyGroups();
-      if (!mounted) return;
+      if (!mounted || serial != _loadSerial) return;
       state = state.copyWith(groups: groups, isLoading: false);
     } catch (_) {
-      if (!mounted) return;
-      state = GroupsState(
-        groups: const <GroupSummary>[],
-        isLoading: false,
-        error: 'Failed to load groups.',
-      );
+      if (!mounted || serial != _loadSerial) return;
+      state = state.copyWith(isLoading: false, error: 'Failed to load groups.');
     }
   }
 
@@ -60,9 +61,12 @@ class GroupsController extends StateNotifier<GroupsState> {
 
     try {
       final group = await _repository.createGroup(name.trim());
+      if (!mounted) return null;
+      onChanged?.call();
       await loadGroups();
       return group;
     } catch (_) {
+      if (!mounted) return null;
       state = state.copyWith(error: 'Failed to create group.');
       return null;
     }
@@ -73,9 +77,12 @@ class GroupsController extends StateNotifier<GroupsState> {
 
     try {
       final group = await _repository.joinGroup(inviteCode.trim());
+      if (!mounted) return null;
+      onChanged?.call();
       await loadGroups();
       return group;
     } catch (_) {
+      if (!mounted) return null;
       state = state.copyWith(error: 'Failed to join group.');
       return null;
     }
@@ -84,8 +91,11 @@ class GroupsController extends StateNotifier<GroupsState> {
   Future<void> leaveGroup(String groupId) async {
     try {
       await _repository.leaveGroup(groupId);
+      if (!mounted) return;
+      onChanged?.call();
       await loadGroups();
     } catch (_) {
+      if (!mounted) return;
       state = state.copyWith(error: 'Failed to leave group.');
     }
   }
@@ -98,5 +108,11 @@ final groupsControllerProvider =
       // this provider is rebuilt and groups are reloaded for the new user.
       ref.watch(appAuthStateProvider);
       ref.watch(activeAccountIdProvider);
-      return GroupsController(repository);
+      final controller = GroupsController(
+        repository,
+        onChanged: () =>
+            ref.read(conversationsRevisionProvider.notifier).state++,
+      );
+      ref.listen(appResyncRevisionProvider, (_, _) => controller.loadGroups());
+      return controller;
     });

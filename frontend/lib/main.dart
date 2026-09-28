@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'core/widgets/app_text_field.dart';
 import 'features/auth/data/auth_repository.dart';
+import 'features/notifications/notification_host.dart';
+import 'features/chat/presentation/conversation_sync_host.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +66,9 @@ class _MomentAppState extends ConsumerState<MomentApp> {
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: dismissKeyboard,
-          child: child ?? const SizedBox.shrink(),
+          child: ConversationSyncHost(
+            child: NotificationHost(child: child ?? const SizedBox.shrink()),
+          ),
         );
       },
     );

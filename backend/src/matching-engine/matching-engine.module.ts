@@ -10,7 +10,7 @@ import { MatchingEngineAdminController } from './matching-engine-admin.controlle
 import { MatchingEngineController } from './matching-engine.controller';
 import {
   MomentNotificationService,
-  NoopMomentNotificationService,
+  DurableMomentNotificationService,
 } from './moment-notification.service';
 
 @Module({
@@ -21,7 +21,7 @@ import {
     MatchingEngineSchedulerService,
     {
       provide: MomentNotificationService,
-      useClass: NoopMomentNotificationService,
+      useClass: DurableMomentNotificationService,
     },
   ],
   controllers: [MatchingEngineController, MatchingEngineAdminController],

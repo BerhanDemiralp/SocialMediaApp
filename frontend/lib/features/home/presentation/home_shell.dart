@@ -6,6 +6,7 @@ import 'home_messages_screen.dart';
 import 'profile_screen.dart';
 import '../../users/presentation/user_conversations.dart';
 import '../../groups/presentation/groups_screen.dart';
+import '../../users/data/user_session.dart';
 
 class HomeShellScreen extends ConsumerStatefulWidget {
   const HomeShellScreen({super.key});
@@ -29,6 +30,10 @@ class _HomeShellScreenState extends ConsumerState<HomeShellScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (index) {
+          if (_currentIndex != index) {
+            ref.read(appResyncRevisionProvider.notifier).state++;
+            ref.read(conversationsRevisionProvider.notifier).state++;
+          }
           setState(() {
             _currentIndex = index;
             _loadedTabIndexes.add(index);

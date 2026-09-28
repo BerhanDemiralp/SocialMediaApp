@@ -6,3 +6,9 @@ Thumbs.db
 notes_for_me
 .agents/
 .claude/
+**/google-services.json
+**/GoogleService-Info.plist
+**/firebase-service-account*.json
+**/*.p8
+frontend/push-config*.json
+frontend/android/.kotlin/

@@ -38,7 +38,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message = 'Internal server error';
     }
 
-    console.error('Exception:', exception);
+    const request = ctx.getRequest<{ originalUrl?: string }>();
+    if (request.originalUrl?.startsWith('/api/notifications')) {
+      // Provider tokens and installation secrets can occur in ORM errors.
+      console.error('Notification API error:', status);
+    } else {
+      console.error('Exception:', exception);
+    }
 
     response.status(status).json({
       statusCode: status,

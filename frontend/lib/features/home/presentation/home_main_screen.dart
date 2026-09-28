@@ -7,7 +7,7 @@ import '../../users/data/user_session.dart';
 
 import '../../../core/widgets/app_text_field.dart';
 import '../data/matching_engine_api_client.dart';
-import '../../chat/presentation/chat_screen.dart';
+import 'moment_chat_navigation.dart';
 import 'home_friends_screen.dart';
 import '../../users/presentation/user_conversations.dart';
 import '../../users/presentation/user_relationships_controller.dart';
@@ -353,59 +353,7 @@ class _MomentCard extends ConsumerWidget {
               tooltip: 'Open chat',
               onPressed: () {
                 dismissKeyboard();
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    fullscreenDialog: true,
-                    builder: (_) => ChatScreen(
-                      conversationId: moment.conversationId,
-                      isGroup: moment.isGroup,
-                      isTemporary: true,
-                      compactMomentPresentation: true,
-                      title: moment.otherParticipantName(currentUserId),
-                      visibleFrom: moment.scheduledAt,
-                      visibleUntil: moment.expiresAt,
-                      showMomentFriendshipActions:
-                          moment.isGroup && moment.status == 'successful',
-                      momentFriendConsent: moment.friendConsentFor(
-                        currentUserId,
-                      ),
-                      momentOtherFriendConsent: moment.otherFriendConsentFor(
-                        currentUserId,
-                      ),
-                      momentFriendshipLocked: moment.isFriendshipLocked,
-                      onMomentFriendshipResponse:
-                          moment.isGroup && moment.status == 'successful'
-                          ? (wantsFriend) async {
-                              final created = await ref
-                                  .read(matchingEngineApiClientProvider)
-                                  .respondToGroupMomentFriendship(
-                                    matchId: moment.id,
-                                    wantsFriend: wantsFriend,
-                                  );
-
-                              ref.invalidate(activeMomentsProvider);
-                              ref.invalidate(userConversationsProvider);
-                              ref
-                                  .read(userRelationshipsProvider.notifier)
-                                  .refresh();
-
-                              Future<void>.delayed(
-                                const Duration(milliseconds: 800),
-                                () {
-                                  ref.invalidate(activeMomentsProvider);
-                                  ref.invalidate(userConversationsProvider);
-                                  ref
-                                      .read(userRelationshipsProvider.notifier)
-                                      .refresh();
-                                },
-                              );
-
-                              return created;
-                            }
-                          : null,
-                    ),
-                  ),
-                );
+                openMomentChat(context, ref, moment, currentUserId);
               },
             ),
           ],

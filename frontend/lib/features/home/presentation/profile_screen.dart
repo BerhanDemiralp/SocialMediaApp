@@ -12,6 +12,7 @@ import '../../users/presentation/app_avatar.dart';
 import '../../users/presentation/user_identity_view.dart';
 import '../../users/data/user_identity_adapters.dart';
 import '../../users/data/user_session.dart';
+import '../../notifications/notification_host.dart';
 
 final userProfileProvider = FutureProvider.autoDispose<UserProfile>((ref) {
   ref.watch(activeAccountIdProvider);
@@ -126,6 +127,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       orElse: () => const SizedBox.shrink(),
                     ),
+                    const NotificationSettingsTile(),
                     SwitchListTile(
                       secondary: const Icon(Icons.dark_mode),
                       title: const Text('Dark mode'),

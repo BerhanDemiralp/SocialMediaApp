@@ -96,7 +96,11 @@ export class MatchingEngineService {
     return matches.map(serializeMomentMatch);
   }
 
-  async getMomentHistoryForUser(userId: string, limit?: number, cursor?: string) {
+  async getMomentHistoryForUser(
+    userId: string,
+    limit?: number,
+    cursor?: string,
+  ) {
     const matches = await this.repository.listHistoryForUser(
       userId,
       limit,
@@ -106,7 +110,8 @@ export class MatchingEngineService {
 
     return {
       items: matches.map(serializeMomentMatch),
-      nextCursor: matches.length === take ? matches[matches.length - 1]?.id : null,
+      nextCursor:
+        matches.length === take ? matches[matches.length - 1]?.id : null,
     };
   }
 
@@ -410,7 +415,9 @@ export class MatchingEngineService {
     }
   }
 
-  private async runStatusWorkOnce(now = new Date()): Promise<MomentStatusRunResult> {
+  private async runStatusWorkOnce(
+    now = new Date(),
+  ): Promise<MomentStatusRunResult> {
     const settings = await this.getRuntimeSettings();
 
     if (!settings.enabled) {
@@ -454,7 +461,9 @@ export class MatchingEngineService {
     const minute = Number(match[2]);
 
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-      throw new BadRequestException('dailyTimeLocal must be a valid 24-hour time');
+      throw new BadRequestException(
+        'dailyTimeLocal must be a valid 24-hour time',
+      );
     }
 
     return `${hour.toString().padStart(2, '0')}:${minute
@@ -535,11 +544,7 @@ export class MatchingEngineService {
     let activated = 0;
 
     for (const match of matches) {
-      const activatedMatch = await this.repository.updateStatus(
-        match.id,
-        MomentMatchStatus.active,
-      );
-      await this.notifications.notifyMatchStarted(activatedMatch);
+      await this.notifications.notifyMatchStarted(match);
       activated += 1;
     }
 
@@ -553,7 +558,9 @@ export class MatchingEngineService {
     return { friend, group };
   }
 
-  async createFriendMoments(window: MomentScheduleWindow): Promise<MomentCreationStats> {
+  async createFriendMoments(
+    window: MomentScheduleWindow,
+  ): Promise<MomentCreationStats> {
     const friendships =
       await this.repository.listAcceptedFriendshipsForMatching();
     const pairedUsers = new Set<string>();
@@ -628,7 +635,9 @@ export class MatchingEngineService {
     return stats;
   }
 
-  async createGroupMoments(window: MomentScheduleWindow): Promise<MomentCreationStats> {
+  async createGroupMoments(
+    window: MomentScheduleWindow,
+  ): Promise<MomentCreationStats> {
     const memberships = await this.repository.listGroupMembershipsForMatching();
     const pairedUsers = new Set<string>();
     const stats: MomentCreationStats = {
@@ -671,10 +680,11 @@ export class MatchingEngineService {
             MomentMatchType.group,
             window.scheduledDay,
           );
-          const friendship = await this.repository.findAcceptedFriendshipBetween(
-            userAId,
-            userBId,
-          );
+          const friendship =
+            await this.repository.findAcceptedFriendshipBetween(
+              userAId,
+              userBId,
+            );
 
           if (userAActive || userBActive || friendship) {
             if (userAActive || userBActive) {
@@ -739,8 +749,7 @@ export class MatchingEngineService {
         continue;
       }
 
-      await this.notifications.notifyReminder(match);
-      await this.repository.markReminderSent(match.id, now);
+      await this.notifications.notifyReminder(match, now);
       remindersSent += 1;
     }
 
@@ -758,7 +767,10 @@ export class MatchingEngineService {
         continue;
       }
 
-      await this.repository.updateStatus(match.id, MomentMatchStatus.successful);
+      await this.repository.updateStatus(
+        match.id,
+        MomentMatchStatus.successful,
+      );
       successful += 1;
     }
 

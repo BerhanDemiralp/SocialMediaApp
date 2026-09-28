@@ -37,12 +37,14 @@ enum MomentOptInState {
 }
 
 model users {
-  id         String   @id @default(uuid())
-  username   String   @unique
-  email      String   @unique
-  avatar_url String?
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  notification_installations notification_installations[]
+  notification_intents       notification_intents[]
+  id                         String                       @id @default(uuid())
+  username                   String                       @unique
+  email                      String                       @unique
+  avatar_url                 String?
+  created_at                 DateTime                     @default(now())
+  updated_at                 DateTime                     @updatedAt
 
   friendships_as_requester     friendships[]                   @relation("FriendshipRequester")
   friendships_as_addressee     friendships[]                   @relation("FriendshipAddressee")
@@ -152,15 +154,16 @@ model games {
 }
 
 model conversations {
-  id                  String            @id @default(uuid())
-  type                ConversationType
-  mode                ConversationMode?
-  title               String?
-  direct_user_low_id  String?
-  direct_user_high_id String?
-  created_at          DateTime          @default(now())
-  updated_at          DateTime          @updatedAt
-  deleted_at          DateTime?
+  notification_intents notification_intents[]
+  id                   String                 @id @default(uuid())
+  type                 ConversationType
+  mode                 ConversationMode?
+  title                String?
+  direct_user_low_id   String?
+  direct_user_high_id  String?
+  created_at           DateTime               @default(now())
+  updated_at           DateTime               @updatedAt
+  deleted_at           DateTime?
 
   direct_user_low  users?                          @relation("DirectConversationLowUser", fields: [direct_user_low_id], references: [id])
   direct_user_high users?                          @relation("DirectConversationHighUser", fields: [direct_user_high_id], references: [id])
@@ -189,23 +192,23 @@ model conversation_participants {
 }
 
 model moment_matches {
-  id               String            @id @default(uuid())
-  match_type       MomentMatchType
-  status           MomentMatchStatus @default(scheduled)
-  user_a_id        String
-  user_b_id        String
-  group_id         String?
-  conversation_id  String
-  scheduled_day    DateTime
-  scheduled_at     DateTime
-  expires_at       DateTime
-  reminder_sent_at DateTime?
-  user_a_opt_in    MomentOptInState  @default(pending)
-  user_b_opt_in    MomentOptInState  @default(pending)
+  id                    String            @id @default(uuid())
+  match_type            MomentMatchType
+  status                MomentMatchStatus @default(scheduled)
+  user_a_id             String
+  user_b_id             String
+  group_id              String?
+  conversation_id       String
+  scheduled_day         DateTime
+  scheduled_at          DateTime
+  expires_at            DateTime
+  reminder_sent_at      DateTime?
+  user_a_opt_in         MomentOptInState  @default(pending)
+  user_b_opt_in         MomentOptInState  @default(pending)
   user_a_friend_consent Boolean?
   user_b_friend_consent Boolean?
-  created_at       DateTime          @default(now())
-  updated_at       DateTime          @updatedAt
+  created_at            DateTime          @default(now())
+  updated_at            DateTime          @updatedAt
 
   user_a       users         @relation("MomentMatchUserA", fields: [user_a_id], references: [id])
   user_b       users         @relation("MomentMatchUserB", fields: [user_b_id], references: [id])
@@ -247,4 +250,54 @@ model conversation_write_exceptions {
 
   @@index([conversation_id, expires_at])
   @@index([granted_to_id, expires_at])
+}
+
+model notification_installations {
+  id           String                    @id
+  secret_hash  String
+  user_id      String
+  platform     String
+  token        String                    @unique
+  version      Int                       @default(1)
+  enabled      Boolean                   @default(true)
+  last_seen_at DateTime                  @default(now())
+  user         users                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deliveries   notification_deliveries[]
+
+  @@index([user_id, enabled])
+}
+
+model notification_intents {
+  id              String                    @id @default(uuid())
+  kind            String
+  source_id       String
+  recipient_id    String
+  conversation_id String
+  created_at      DateTime                  @default(now())
+  expires_at      DateTime
+  recipient       users                     @relation(fields: [recipient_id], references: [id], onDelete: Cascade)
+  conversation    conversations             @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  deliveries      notification_deliveries[]
+
+  @@unique([kind, source_id, recipient_id])
+  @@index([expires_at])
+}
+
+model notification_deliveries {
+  id                   String                     @id @default(uuid())
+  intent_id            String
+  installation_id      String
+  installation_version Int
+  status               String                     @default("pending")
+  attempts             Int                        @default(0)
+  next_attempt_at      DateTime                   @default(now())
+  lease_until          DateTime?
+  claim_id             String?
+  error_code           String?
+  accepted_at          DateTime?
+  intent               notification_intents       @relation(fields: [intent_id], references: [id], onDelete: Cascade)
+  installation         notification_installations @relation(fields: [installation_id], references: [id], onDelete: Cascade)
+
+  @@unique([intent_id, installation_id])
+  @@index([status, next_attempt_at, lease_until])
 }

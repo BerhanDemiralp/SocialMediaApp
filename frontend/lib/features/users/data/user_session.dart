@@ -17,3 +17,7 @@ final activeAccountIdProvider = Provider<String?>((ref) {
 
 final conversationsRevisionProvider = StateProvider<int>((ref) => 0);
 final identityRevisionProvider = StateProvider<int>((ref) => 0);
+final appResyncRevisionProvider = StateProvider<int>((ref) => 0);
+final conversationRevisionProvider = StateProvider.family<int, String>(
+  (ref, id) => 0,
+);
